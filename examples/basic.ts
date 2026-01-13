@@ -17,10 +17,10 @@ async function main() {
     console.log("=== Phase.dev Approval Example ===\n");
 
     try {
-        // Request approval for production secrets
         const token = await getApprovedToken("production-secrets", {
-            // apiUrl: 'https://your-bot.railway.app', // Or set APPROVAL_API_URL env
-            requester: "deploy-script",
+            apiUrl: 'https://approval.up.railway.app',
+            requester: "test-nodejs-script",
+            environment: "production",
             timeout: 300000, // 5 minutes
         });
 

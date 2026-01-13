@@ -8,6 +8,8 @@
 export interface ApprovalOptions {
     /** API URL of the approval bot server */
     apiUrl?: string;
+    /** Environment name (e.g., "production", "staging") */
+    environment?: string;
     /** Timeout in milliseconds (default: 300000 = 5 minutes) */
     timeout?: number;
     /** Polling interval in milliseconds (default: 2000 = 2 seconds) */
@@ -53,10 +55,11 @@ export async function getApprovedToken(
     resource: string,
     options: ApprovalOptions = {}
 ): Promise<string> {
-    const apiUrl = options.apiUrl || process.env.APPROVAL_API_URL;
+    const apiUrl = options.apiUrl || process.env.APPROVAL_API_URL || "https://approval.up.railway.app";
     const timeout = options.timeout ?? 300000; // 5 minutes
     const pollInterval = options.pollInterval ?? 2000; // 2 seconds
     const requester = options.requester || "sdk";
+    const environment = options.environment || "default";
 
     if (!apiUrl) {
         throw new ApprovalError(
@@ -71,7 +74,7 @@ export async function getApprovedToken(
         const response = await fetch(`${apiUrl}/request`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ resource, requester }),
+            body: JSON.stringify({ resource, requester, environment }),
         });
 
         if (!response.ok) {
