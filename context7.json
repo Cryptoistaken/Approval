@@ -1,0 +1,15 @@
+{
+    "include": [
+        "README.md",
+        "bot/**/*.ts",
+        "sdk/src/**/*.ts",
+        "examples/**/*.ts",
+        "package.json"
+    ],
+    "exclude": [
+        "**/node_modules/**",
+        "**/dist/**",
+        "**/test-install/**",
+        "**/.git/**"
+    ]
+}
