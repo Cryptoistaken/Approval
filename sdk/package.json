@@ -1,0 +1,39 @@
+{
+    "name": "@cryptoistaken/approval",
+    "version": "1.0.0",
+    "description": "Telegram-based approval system for Phase.dev secrets",
+    "type": "module",
+    "main": "./dist/index.js",
+    "module": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "import": "./dist/index.js",
+            "types": "./dist/index.d.ts"
+        }
+    },
+    "files": [
+        "dist"
+    ],
+    "scripts": {
+        "build": "bun build ./src/index.ts --outdir ./dist --target node && bun run build:types",
+        "build:types": "tsc --emitDeclarationOnly --declaration --outDir dist",
+        "prepublishOnly": "bun run build"
+    },
+    "devDependencies": {
+        "bun-types": "latest",
+        "typescript": "^5.0.0"
+    },
+    "keywords": [
+        "phase",
+        "secrets",
+        "approval",
+        "telegram"
+    ],
+    "author": "cryptoistaken",
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/cryptoistaken/approval"
+    }
+}
