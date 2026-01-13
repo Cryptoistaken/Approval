@@ -29,7 +29,8 @@ const token = await getApprovedToken('production-secrets', {
 const phase = new Phase(token);
 const secrets = await phase.get({
   appId: 'your-app-id',
-  envName: 'Production'
+  envName: 'Production',
+  path: '/backend' // Optional: Fetch secrets from a specific path
 });
 
 console.log('Access granted! Secrets loaded.');

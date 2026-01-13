@@ -26,15 +26,30 @@ async function main() {
 
         console.log("\nToken received:", token.substring(0, 20) + "...");
 
-        // Now use the token with Phase SDK
+        // Now use the token with Phase SDK (v3.0.0+)
         // const phase = new Phase(token);
+
+        // Example 1: Get all secrets in an environment
         // const secrets = await phase.get({
         //   appId: 'your-app-id',
         //   envName: 'Production'
         // });
-        // console.log('Secrets:', secrets);
 
-        console.log("\n✅ Success! You can now use this token with Phase SDK.");
+        // Example 2: Get secrets at a specific path
+        // const backendSecrets = await phase.get({
+        //   appId: 'your-app-id',
+        //   envName: 'Production',
+        //   path: '/backend/services'
+        // });
+
+        // Example 3: Get secrets with specific tags
+        // const dbSecrets = await phase.get({
+        //   appId: 'your-app-id',
+        //   envName: 'Production',
+        //   tags: ['database', 'critical']
+        // });
+
+        // console.log('Successfully loaded secrets!');
     } catch (error) {
         if (error instanceof ApprovalError) {
             console.error(`\n❌ Approval failed: ${error.message} (${error.code})`);
