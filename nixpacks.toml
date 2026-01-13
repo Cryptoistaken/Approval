@@ -1,0 +1,11 @@
+[phases.setup]
+nixPkgs = ["bun"]
+
+[phases.install]
+cmds = ["cd bot && bun install"]
+
+[phases.build]
+cmds = ["echo 'Building bot...'"]
+
+[start]
+cmd = "cd bot && bun run start"
