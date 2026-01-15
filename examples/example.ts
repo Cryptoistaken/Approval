@@ -1,4 +1,9 @@
-import { createApprovedPhase } from '../sdk/src/index';
+/**
+ * Complete Example: @cryptoistaken/approval
+ * 
+ * Demonstrates how to securely fetch Phase.dev secrets with human approval.
+ */
+import { createApprovedPhase } from '../sdk/src/index'; // In your app, import from '@cryptoistaken/approval'
 
 // Example: Simplified Phase integration with defaults
 async function main() {
