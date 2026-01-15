@@ -11,5 +11,7 @@
         "**/dist/**",
         "**/test-install/**",
         "**/.git/**"
-    ]
+    ],
+    "url": "https://context7.com/cryptoistaken/approval",
+    "public_key": "pk_x3TDSurVCkctnWnVOLMnW"
 }
