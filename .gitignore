@@ -29,3 +29,6 @@ Thumbs.db
 # IDEs
 .vscode/
 .idea/
+
+# Bot folder
+bot/
