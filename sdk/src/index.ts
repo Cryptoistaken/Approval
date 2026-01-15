@@ -140,4 +140,97 @@ function sleep(ms: number): Promise<void> {
 }
 
 // Default export for convenience
-export default { getApprovedToken, ApprovalError };
+export default { getApprovedToken, createApprovedPhase, ApprovalError };
+
+// --- Phase Integration ---
+
+import Phase from '@phase.dev/phase-node';
+import type { GetSecretOptions } from '@phase.dev/phase-node';
+
+/**
+ * Options for configuring the Phase client defaults.
+ * Any options provided here will be automatically applied to phase.get() calls
+ * unless overridden.
+ */
+export interface PhaseDefaults extends Partial<GetSecretOptions> {
+    // We can add other Phase-specific defaults here if needed later
+}
+
+/**
+ * Combined options for approval and Phase defaults.
+ */
+export interface CreateApprovedPhaseOptions extends ApprovalOptions, PhaseDefaults { }
+
+/**
+ * A wrapper around the Phase client that applies default options.
+ */
+export type WrappedPhase = Omit<Phase, 'get'> & {
+    /**
+     * Fetch secrets with automatic default options application.
+     */
+    get(options?: Partial<GetSecretOptions>): Promise<any>;
+    /**
+     * Access to the underlying raw Phase client instance.
+     */
+    _raw: Phase;
+};
+
+/**
+ * Request approval and return an initialized, configured Phase client.
+ *
+ * @param resource - Name of the resource being requested
+ * @param options - Configuration for both the approval process and Phase defaults
+ * @returns Promise resolving to a wrapped Phase client
+ *
+ * @example
+ * ```typescript
+ * const phase = await createApprovedPhase('prod-db', {
+ *   envName: 'Production',
+ *   appId: 'my-app-id'
+ * });
+ *
+ * // Automatically uses 'Production' and 'my-app-id'
+ * const secrets = await phase.get();
+ * ```
+ */
+export async function createApprovedPhase(
+    resource: string,
+    options: CreateApprovedPhaseOptions = {}
+): Promise<WrappedPhase> {
+    // 1. Get the approved token
+    const token = await getApprovedToken(resource, options);
+
+    // 2. Initialize Phase
+    const phase = new Phase(token);
+
+    // 3. Wrap it with defaults
+    return wrapPhase(phase, options);
+}
+
+/**
+ * Helper to wrap a Phase instance with default options.
+ */
+function wrapPhase(phase: Phase, defaults: PhaseDefaults): WrappedPhase {
+    // Create a proxy to intercept .get() calls
+    const wrapper = new Proxy(phase, {
+        get(target, prop, receiver) {
+            if (prop === 'get') {
+                return async (options: Partial<GetSecretOptions> = {}) => {
+                    // Merge defaults with provided options
+                    // Provided options take precedence
+                    const mergedOptions = { ...defaults, ...options };
+
+                    // Ensure required fields are present if possible, though Phase SDK validation will handle missing ones
+                    return target.get(mergedOptions as GetSecretOptions);
+                };
+            }
+            if (prop === '_raw') {
+                return target;
+            }
+            // Forward all other properties/methods to the original instance
+            return Reflect.get(target, prop, receiver);
+        }
+    });
+
+    return wrapper as unknown as WrappedPhase;
+}
