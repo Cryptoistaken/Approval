@@ -8,14 +8,19 @@
 export interface ApprovalOptions {
     /** API URL of the approval bot server */
     apiUrl?: string;
-    /** Environment name (e.g., "production", "staging") */
-    environment?: string;
     /** Timeout in milliseconds (default: 300000 = 5 minutes) */
     timeout?: number;
     /** Polling interval in milliseconds (default: 2000 = 2 seconds) */
     pollInterval?: number;
-    /** Name of the requester (for logging purposes) */
-    requester?: string;
+}
+
+export interface ApprovalRequestParams {
+    /** Phase App ID */
+    appId: string;
+    /** Environment name (e.g., "Production", "Staging") */
+    envName: string;
+    /** Optional path for secrets */
+    path?: string;
 }
 
 export interface ApprovalResponse {
@@ -34,9 +39,9 @@ export class ApprovalError extends Error {
 }
 
 /**
- * Request approval for accessing a resource and wait for the token.
+ * Request approval for accessing secrets and wait for the token.
  *
- * @param resource - Name of the resource being requested (e.g., "production-secrets")
+ * @param params - The appId, envName, and optional path to request approval for
  * @param options - Configuration options
  * @returns Promise that resolves with the Phase token when approved
  * @throws ApprovalError if denied, timed out, or network error
@@ -46,20 +51,22 @@ export class ApprovalError extends Error {
  * import { getApprovedToken } from '@cryptoistaken/approval';
  * import Phase from '@phase.dev/phase-node';
  *
- * const token = await getApprovedToken('production-secrets');
+ * const token = await getApprovedToken({
+ *   appId: 'my-app-id',
+ *   envName: 'Production',
+ *   path: '/database'
+ * });
  * const phase = new Phase(token);
- * const secrets = await phase.get({ appId: '...', envName: 'Production' });
+ * const secrets = await phase.get({ appId: 'my-app-id', envName: 'Production' });
  * ```
  */
 export async function getApprovedToken(
-    resource: string,
+    params: ApprovalRequestParams,
     options: ApprovalOptions = {}
 ): Promise<string> {
     const apiUrl = options.apiUrl || process.env.APPROVAL_API_URL || "https://approval.up.railway.app";
     const timeout = options.timeout ?? 300000; // 5 minutes
     const pollInterval = options.pollInterval ?? 2000; // 2 seconds
-    const requester = options.requester || "sdk";
-    const environment = options.environment || "default";
 
     if (!apiUrl) {
         throw new ApprovalError(
@@ -74,7 +81,11 @@ export async function getApprovedToken(
         const response = await fetch(`${apiUrl}/request`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ resource, requester, environment }),
+            body: JSON.stringify({
+                appId: params.appId,
+                envName: params.envName,
+                path: params.path
+            }),
         });
 
         if (!response.ok) {
@@ -90,7 +101,7 @@ export async function getApprovedToken(
         );
     }
 
-    console.log(`Approval requested for "${resource}" (${requestId})`);
+    console.log(`Approval requested for appId="${params.appId}", envName="${params.envName}"${params.path ? `, path="${params.path}"` : ""}`);
     console.log("Waiting for approval via Telegram...");
 
     // Poll for status
@@ -115,7 +126,7 @@ export async function getApprovedToken(
 
             if (data.status === "denied") {
                 throw new ApprovalError(
-                    `Access denied for resource "${resource}"`,
+                    `Access denied for appId="${params.appId}", envName="${params.envName}"`,
                     "DENIED"
                 );
             }
@@ -178,33 +189,41 @@ export type WrappedPhase = Omit<Phase, 'get'> & {
 /**
  * Request approval and return an initialized, configured Phase client.
  *
- * @param resource - Name of the resource being requested
+ * @param params - The appId, envName, and optional path to request approval for
  * @param options - Configuration for both the approval process and Phase defaults
  * @returns Promise resolving to a wrapped Phase client
  *
  * @example
  * ```typescript
- * const phase = await createApprovedPhase('prod-db', {
- *   envName: 'Production',
- *   appId: 'my-app-id'
- * });
+ * const phase = await createApprovedPhase(
+ *   { appId: 'my-app-id', envName: 'Production', path: '/database' },
+ *   { timeout: 60000 }
+ * );
  *
  * // Automatically uses 'Production' and 'my-app-id'
  * const secrets = await phase.get();
  * ```
  */
 export async function createApprovedPhase(
-    resource: string,
+    params: ApprovalRequestParams,
     options: CreateApprovedPhaseOptions = {}
 ): Promise<WrappedPhase> {
     // 1. Get the approved token
-    const token = await getApprovedToken(resource, options);
+    const token = await getApprovedToken(params, options);
 
     // 2. Initialize Phase
     const phase = new Phase(token);
 
-    // 3. Wrap it with defaults
-    return wrapPhase(phase, options);
+    // 3. Set defaults from params
+    const defaults: PhaseDefaults = {
+        appId: params.appId,
+        envName: params.envName,
+        path: params.path,
+        ...options
+    };
+
+    // 4. Wrap it with defaults
+    return wrapPhase(phase, defaults);
 }
 
 /**

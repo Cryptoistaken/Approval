@@ -1,6 +1,6 @@
 {
     "name": "@cryptoistaken/approval",
-    "version": "1.0.0",
+    "version": "2.0.0",
     "description": "Telegram-based approval system for Phase.dev secrets",
     "type": "module",
     "main": "./dist/index.js",

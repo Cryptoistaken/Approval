@@ -7,7 +7,7 @@ import { createApprovedPhase } from '../sdk/src/index'; // In your app, import f
 
 // Example: Simplified Phase integration with defaults
 async function main() {
-    console.log('--- Phase Approval Mockup ---');
+    console.log('--- Phase Approval Example ---');
 
     // MOCK: Set environment variable so we don't need a real server for this *syntax check*
     // In a real run, this would talk to the bot
@@ -17,21 +17,22 @@ async function main() {
         console.log('Initializing Phase with approval + defaults...');
 
         // 1. One-line initialization with defaults
-        const phase = await createApprovedPhase('prod-db-credentials', {
-            // Approval settings
-            requester: 'integration-test',
-            environment: 'Production',
+        // The Telegram message will show: appId, envName, and path
+        const phase = await createApprovedPhase(
+            {
+                appId: '00000000-0000-0000-0000-000000000000', // Your Phase App ID
+                envName: 'Production',
+                path: '/database'
+            },
+            {
+                // Optional: Approval settings
+                timeout: 300000 // 5 minutes
+            }
+        );
 
-            // Phase Defaults!
-            appId: '00000000-0000-0000-0000-000000000000', // Mock UUID
-            envName: 'Production',
-            path: '/database'
-        });
+        console.log('Approved! Fetching secrets...');
 
-        console.log('Appproved! Fetching secrets...');
-
-        // 2. Fetch without arguments - uses defaults
-        // This will fail at runtime without a real token, but verifies the API syntax
+        // 2. Fetch without arguments - uses defaults from approval params
         const secrets = await phase.get();
         console.log('Secrets:', secrets);
 
