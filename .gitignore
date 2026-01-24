@@ -1,35 +1,7 @@
-# Dependencies
 node_modules/
-.bun/
-
-# Environment variables
 .env
-.env.*
-
-package-lock.json
-
-# Build outputs
-dist/
-out/
-build/
-
-# Database
 *.db
-*.sqlite
 data/
 !data/.keep
-
-# Logs
-logs/
-*.log
-
-# OS
+dist/
 .DS_Store
-Thumbs.db
-
-# IDEs
-.vscode/
-.idea/
-
-# Bot folder
-

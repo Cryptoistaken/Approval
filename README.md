@@ -2,34 +2,50 @@
 
 Human-in-the-loop approval for [Phase.dev](https://phase.dev) secrets via Telegram.
 
-## How It Works
-
 ```
-Your Script → Crion SDK → Crion Bot → Telegram → You Approve → Secrets
+Your Script → Crion → Telegram → You Approve → Secrets
 ```
 
-## Setup
+## Quick Start
 
-### 1. Deploy the Bot (Railway)
+### 1. Deploy Bot to Railway
 
-[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/crion?referralCode=4n_jis)
+[![Deploy on Railway](https://railway.com/button.svg)](https://railway.app/template/crion)
 
-**Set these environment variables:**
+**Required Environment Variables:**
 
 | Variable | Description |
 |----------|-------------|
-| `TELEGRAM_BOT_TOKEN` | From [@BotFather](https://t.me/BotFather) |
-| `TELEGRAM_ADMIN_CHAT_ID` | Your chat ID (get from [@userinfobot](https://t.me/userinfobot)) |
+| `TELEGRAM_BOT_TOKEN` | Get from [@BotFather](https://t.me/BotFather) |
+| `TELEGRAM_ADMIN_CHAT_ID` | Get from [@userinfobot](https://t.me/userinfobot) |
 | `PHASE_TOKEN` | Your Phase service token |
-| `PHASE_APP_ID` | Your Phase app ID (optional) |
 
-### 2. Install the SDK
+### 2. Install SDK
 
 ```bash
 npm install @cryptoistaken/crion
 ```
 
-### 3. Configure Your Project
+### 3. Use
+
+```typescript
+import { createApprovedPhase } from '@cryptoistaken/crion';
+
+const phase = await createApprovedPhase('/my-script');
+const secrets = await phase.get({ path: '/' });
+
+console.log(secrets.API_KEY);
+```
+
+## How It Works
+
+1. Your script calls `createApprovedPhase('/path')`
+2. Bot sends you a Telegram notification with Approve/Deny buttons
+3. You tap **Approve**
+4. SDK gets your Phase token and fetches secrets
+5. Your script continues with the secrets
+
+## SDK Configuration
 
 ```bash
 # .env
@@ -37,29 +53,15 @@ APPROVAL_API_URL=https://your-bot.railway.app
 PHASE_ENV_NAME=production
 ```
 
-### 4. Use It
-
-```typescript
-import { createApprovedPhase } from '@cryptoistaken/crion';
-
-// This sends a Telegram notification
-const phase = await createApprovedPhase('/my-script');
-
-// After you approve in Telegram:
-const secrets = await phase.get({ path: '/' });
-console.log(secrets.API_KEY);
-```
-
 ## API
 
 ### `createApprovedPhase(path, options?)`
 
-Request approval and get a Phase instance.
-
 ```typescript
 const phase = await createApprovedPhase('/chatbot', {
-    timeout: 300000,     // 5 min (default)
-    envName: 'production'
+    timeout: 300000,      // 5 min default
+    envName: 'production',
+    apiUrl: 'https://your-bot.railway.app'
 });
 
 const secrets = await phase.get({ path: '/' });
@@ -67,19 +69,17 @@ const secrets = await phase.get({ path: '/' });
 
 ### `getApprovedToken(path, options?)`
 
-Request approval and get just the token.
-
 ```typescript
 const token = await getApprovedToken('/script');
-// Use token with Phase directly
+// Use token with Phase SDK directly
 ```
 
 ## Security
 
-- ✅ One-time token fetch (cleared after first use)
+- ✅ One-time token (cleared after fetched)
 - ✅ 5-minute request expiry
-- ✅ Full UUID request IDs (unguessable)
-- ✅ Human approval required for every request
+- ✅ Full UUID request IDs
+- ✅ Human approval required
 
 ## License
 

@@ -1,15 +1,7 @@
 {
-    "name": "approval-root",
+    "name": "crion",
     "private": true,
-    "workspaces": [
-        "bot",
-        "sdk",
-        "examples"
-    ],
     "scripts": {
         "start": "cd bot && bun run start"
-    },
-    "dependencies": {
-        "@cryptoistaken/crion": "^2.1.0"
     }
 }
