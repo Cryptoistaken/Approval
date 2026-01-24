@@ -35,7 +35,7 @@
     "license": "MIT",
     "repository": {
         "type": "git",
-        "url": "https://github.com/cryptoistaken/approval"
+        "url": "https://github.com/Cryptoistaken/Crion"
     },
     "dependencies": {
         "@phase.dev/phase-node": "^3.2.0"

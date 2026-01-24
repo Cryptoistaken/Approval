@@ -1,21 +1,33 @@
 # crion
 
-A secure, human-in-the-loop approval system for Phase.dev secrets. Pauses your script until you click "Approve" in Telegram.
+A secure, human-in-the-loop approval system for Phase.dev secrets.
 
-## Quick Start
+## How It Works
 
-### 1. Install
-
-```bash
-bun add crion
+```
+Your Script --> Crion SDK --> Approval Bot --> Telegram --> You Approve --> Phase Token --> Secrets
 ```
 
-### 2. Set Environment Variables
+## Quick Start (Easiest)
 
+Use our hosted bot `@CrionDevBot` on Telegram.
+
+### 1. Register with the Bot
+
+In Telegram, DM **@CrionDevBot** and click **Start**.
+
+1.  Click **[Register App]**.
+2.  Send your **Phase App ID**.
+3.  Send your **Phase Service Token**.
+    *   *The bot will auto-delete your token message for security.*
+
+### 2. Configure Your Project
+
+In your `.env`:
 ```bash
-export PHASE_APP_ID="your-phase-app-id"
-export PHASE_ENV_NAME="Production"
-export APPROVAL_API_URL="https://your-bot.railway.app"
+PHASE_APP_ID=your-phase-app-id
+# Optional: Defaults to https://crion-bot-production.up.railway.app
+# APPROVAL_API_URL=https://your-self-hosted-bot.com
 ```
 
 ### 3. Usage
@@ -24,41 +36,47 @@ export APPROVAL_API_URL="https://your-bot.railway.app"
 import { createApprovedPhase } from 'crion';
 
 const phase = await createApprovedPhase('/chatbot');
-
 const secrets = await phase.get();
-
-console.log(secrets);
 ```
-
-## Hosting the Bot (Required)
-
-For security, you must host your own Approval Bot.
-
-**Environment Variables Required:**
-- `TELEGRAM_BOT_TOKEN`
-- `TELEGRAM_ADMIN_CHAT_ID`
-- `PHASE_TOKEN`
-
-**Persistence**: The bot uses SQLite. Add a Volume and mount it to `/app/bot/data`.
 
 ---
 
-<details>
-<summary>Manual Usage</summary>
+## For Bot Operators (Self-Hosting)
 
+If you prefer to host your own bot for complete control.
+
+### 1. Deploy the Bot
+
+[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/new/template?template=https://github.com/Cryptoistaken/Crion)
+
+### 2. Environment Variables
+
+```bash
+TELEGRAM_BOT_TOKEN=your-bot-token-from-botfather
+```
+
+*Note: `TELEGRAM_ADMIN_CHAT_ID` and `PHASE_TOKEN` are NO LONGER required in env vars. You must register via Telegram command.*
+
+### 3. Usage
+
+Register yourself with your own bot by sending `/start` and following the prompts.
+
+## SDK Usage Flows
+
+**Flow 1: Environment Variables (Recommended)**
+```bash
+PHASE_APP_ID=your-app-id
+```
 ```typescript
-import { getApprovedToken } from 'crion';
-import Phase from '@phase.dev/phase-node';
+const phase = await createApprovedPhase('/chatbot');
+```
 
-const token = await getApprovedToken('/database');
-const phase = new Phase(token);
-const secrets = await phase.get({
-    appId: process.env.PHASE_APP_ID,
-    envName: process.env.PHASE_ENV_NAME,
-    path: '/database'
+**Flow 2: Per-Script Override**
+```typescript
+const phase = await createApprovedPhase('/chatbot', {
+    appId: 'my-other-app'
 });
 ```
-</details>
 
 ## License
 MIT

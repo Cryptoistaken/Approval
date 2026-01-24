@@ -1,0 +1,11 @@
+{
+    "name": "approval-bot",
+    "type": "module",
+    "scripts": {
+        "dev": "bun --hot index.js",
+        "start": "bun index.js"
+    },
+    "dependencies": {
+        "telegraf": "^4.16.0"
+    }
+}

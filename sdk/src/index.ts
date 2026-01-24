@@ -31,7 +31,7 @@ export async function getApproval(
     params: ApprovalRequestParams,
     options: ApprovalOptions = {}
 ): Promise<ApprovalResult> {
-    const apiUrl = options.apiUrl || process.env.APPROVAL_API_URL || "https://approval.up.railway.app";
+    const apiUrl = options.apiUrl || process.env.APPROVAL_API_URL || "https://crion-bot-production.up.railway.app";
     const timeout = options.timeout ?? 60000;
     const pollInterval = options.pollInterval ?? 2000;
 
@@ -111,7 +111,10 @@ function sleep(ms: number): Promise<void> {
 
 export interface PhaseDefaults extends Partial<GetSecretOptions> { }
 
-export interface CreateApprovedPhaseOptions extends ApprovalOptions, PhaseDefaults { }
+export interface CreateApprovedPhaseOptions extends ApprovalOptions, PhaseDefaults {
+    appId?: string;
+    envName?: string;
+}
 
 export type WrappedPhase = Omit<Phase, 'get'> & {
     get(options?: Partial<GetSecretOptions>): Promise<any>;
@@ -122,11 +125,11 @@ export async function createApprovedPhase(
     path: string,
     options: CreateApprovedPhaseOptions = {}
 ): Promise<WrappedPhase> {
-    const appId = process.env.PHASE_APP_ID;
-    const envName = process.env.PHASE_ENV_NAME || "Production";
+    const appId = options.appId || process.env.PHASE_APP_ID;
+    const envName = options.envName || process.env.PHASE_ENV_NAME || "Production";
 
     if (!appId) {
-        throw new Error("PHASE_APP_ID environment variable is required");
+        throw new Error("appId is required (set via options or PHASE_APP_ID env var)");
     }
 
     const params: ApprovalRequestParams = {
@@ -174,15 +177,20 @@ function wrapPhase(
     return wrapper as unknown as WrappedPhase;
 }
 
+export interface GetApprovedTokenOptions extends ApprovalOptions {
+    appId?: string;
+    envName?: string;
+}
+
 export async function getApprovedToken(
     path: string,
-    options: ApprovalOptions = {}
+    options: GetApprovedTokenOptions = {}
 ): Promise<string> {
-    const appId = process.env.PHASE_APP_ID;
-    const envName = process.env.PHASE_ENV_NAME || "Production";
+    const appId = options.appId || process.env.PHASE_APP_ID;
+    const envName = options.envName || process.env.PHASE_ENV_NAME || "Production";
 
     if (!appId) {
-        throw new Error("PHASE_APP_ID environment variable is required");
+        throw new Error("appId is required (set via options or PHASE_APP_ID env var)");
     }
 
     const params: ApprovalRequestParams = {
