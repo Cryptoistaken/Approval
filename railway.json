@@ -8,8 +8,9 @@
         "numReplicas": 1,
         "startCommand": "cd bot && bun index.js",
         "healthcheckPath": "/health",
-        "healthcheckTimeout": 30,
+        "healthcheckTimeout": 60,
+        "sleepApplication": false,
         "restartPolicyType": "ON_FAILURE",
-        "restartPolicyMaxRetries": 3
+        "restartPolicyMaxRetries": 5
     }
 }
