@@ -1,62 +1,62 @@
-# @cryptoistaken/approval
+# crion
 
-A secure, human-in-the-loop approval system for accessing Phase.dev secrets. Pauses your script until you click "Approve" in Telegram.
+A secure, human-in-the-loop approval system for Phase.dev secrets. Pauses your script until you click "Approve" in Telegram.
 
 ## Quick Start
 
 ### 1. Install
 
 ```bash
-bun add @cryptoistaken/approval
+bun add crion
 ```
 
-### 2. Usage
-
-Copy-paste this into your script. It handles everything: approval, auth, and fetching.
-
-```typescript
-import { createApprovedPhase } from '@cryptoistaken/approval';
-
-// 1. Request Approval & Init
-// Execution PAUSES here until Admin approves via Telegram
-const phase = await createApprovedPhase('production-db-access', {
-    // Approval Context
-    requester: 'migration-script',
-    environment: 'Production',
-    
-    // Phase Defaults (Optional) - Applied to all requests
-    appId: 'YOUR_PHASE_APP_ID',
-    envName: 'Production',
-    path: '/' 
-});
-
-// 2. Fetch Secrets
-// Automatically uses the authenticated token and defaults above
-const secrets = await phase.get();
-
-console.log('Access granted!', secrets);
-```
-
-## Configuration (Optional)
-
-If you host your own bot, set the URL:
+### 2. Set Environment Variables
 
 ```bash
+export PHASE_APP_ID="your-phase-app-id"
+export PHASE_ENV_NAME="Production"
 export APPROVAL_API_URL="https://your-bot.railway.app"
 ```
+
+### 3. Usage
+
+```typescript
+import { createApprovedPhase } from 'crion';
+
+const phase = await createApprovedPhase('/chatbot');
+
+const secrets = await phase.get();
+
+console.log(secrets);
+```
+
+## Hosting the Bot (Required)
+
+For security, you must host your own Approval Bot.
+
+**Environment Variables Required:**
+- `TELEGRAM_BOT_TOKEN`
+- `TELEGRAM_ADMIN_CHAT_ID`
+- `PHASE_TOKEN`
+
+**Persistence**: The bot uses SQLite. Add a Volume and mount it to `/app/bot/data`.
 
 ---
 
 <details>
-<summary>Manual Usage (Advanced)</summary>
+<summary>Manual Usage</summary>
 
 ```typescript
-import { getApprovedToken } from '@cryptoistaken/approval';
+import { getApprovedToken } from 'crion';
 import Phase from '@phase.dev/phase-node';
 
-const token = await getApprovedToken('my-resource');
+const token = await getApprovedToken('/database');
 const phase = new Phase(token);
-const secrets = await phase.get({ ... });
+const secrets = await phase.get({
+    appId: process.env.PHASE_APP_ID,
+    envName: process.env.PHASE_ENV_NAME,
+    path: '/database'
+});
 ```
 </details>
 

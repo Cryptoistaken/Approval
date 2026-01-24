@@ -1,6 +1,6 @@
 {
-    "name": "@cryptoistaken/approval",
-    "version": "2.0.0",
+    "name": "crion",
+    "version": "2.1.0",
     "description": "Telegram-based approval system for Phase.dev secrets",
     "type": "module",
     "main": "./dist/index.js",
@@ -17,10 +17,11 @@
     ],
     "scripts": {
         "build": "bun build ./src/index.ts --outdir ./dist --target node && bun run build:types",
-        "build:types": "tsc --emitDeclarationOnly --declaration --outDir dist",
+        "build:types": "tsc ./src/index.ts --emitDeclarationOnly --declaration --outDir dist",
         "prepublishOnly": "bun run build"
     },
     "devDependencies": {
+        "@types/node": "^25.0.10",
         "bun-types": "latest",
         "typescript": "^5.0.0"
     },

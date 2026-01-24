@@ -1,31 +1,20 @@
-/**
- * @cryptoistaken/approval
- *
- * Telegram-based approval system for Phase.dev secrets.
- * Request approval via Telegram before accessing secrets.
- */
+import Phase from '@phase.dev/phase-node';
+import type { GetSecretOptions } from '@phase.dev/phase-node';
 
 export interface ApprovalOptions {
-    /** API URL of the approval bot server */
     apiUrl?: string;
-    /** Timeout in milliseconds (default: 300000 = 5 minutes) */
     timeout?: number;
-    /** Polling interval in milliseconds (default: 2000 = 2 seconds) */
     pollInterval?: number;
 }
 
 export interface ApprovalRequestParams {
-    /** Phase App ID */
     appId: string;
-    /** Environment name (e.g., "Production", "Staging") */
     envName: string;
-    /** Optional path for secrets */
-    path?: string;
+    path: string;
 }
 
-export interface ApprovalResponse {
-    status: "pending" | "approved" | "denied";
-    token?: string;
+export interface ApprovalResult {
+    phaseToken: string;
 }
 
 export class ApprovalError extends Error {
@@ -38,44 +27,14 @@ export class ApprovalError extends Error {
     }
 }
 
-/**
- * Request approval for accessing secrets and wait for the token.
- *
- * @param params - The appId, envName, and optional path to request approval for
- * @param options - Configuration options
- * @returns Promise that resolves with the Phase token when approved
- * @throws ApprovalError if denied, timed out, or network error
- *
- * @example
- * ```typescript
- * import { getApprovedToken } from '@cryptoistaken/approval';
- * import Phase from '@phase.dev/phase-node';
- *
- * const token = await getApprovedToken({
- *   appId: 'my-app-id',
- *   envName: 'Production',
- *   path: '/database'
- * });
- * const phase = new Phase(token);
- * const secrets = await phase.get({ appId: 'my-app-id', envName: 'Production' });
- * ```
- */
-export async function getApprovedToken(
+export async function getApproval(
     params: ApprovalRequestParams,
     options: ApprovalOptions = {}
-): Promise<string> {
+): Promise<ApprovalResult> {
     const apiUrl = options.apiUrl || process.env.APPROVAL_API_URL || "https://approval.up.railway.app";
-    const timeout = options.timeout ?? 300000; // 5 minutes
-    const pollInterval = options.pollInterval ?? 2000; // 2 seconds
+    const timeout = options.timeout ?? 60000;
+    const pollInterval = options.pollInterval ?? 2000;
 
-    if (!apiUrl) {
-        throw new ApprovalError(
-            "APPROVAL_API_URL environment variable or apiUrl option is required",
-            "UNKNOWN"
-        );
-    }
-
-    // Create approval request
     let requestId: string;
     try {
         const response = await fetch(`${apiUrl}/request`, {
@@ -101,10 +60,9 @@ export async function getApprovedToken(
         );
     }
 
-    console.log(`Approval requested for appId="${params.appId}", envName="${params.envName}"${params.path ? `, path="${params.path}"` : ""}`);
-    console.log("Waiting for approval via Telegram...");
+    console.log(`Approval requested for path="${params.path}"`);
+    console.log("Waiting for approval via Telegram");
 
-    // Poll for status
     const startTime = Date.now();
 
     while (Date.now() - startTime < timeout) {
@@ -114,29 +72,30 @@ export async function getApprovedToken(
             const response = await fetch(`${apiUrl}/status/${requestId}`);
 
             if (!response.ok) {
-                continue; // Retry on error
+                continue;
             }
 
-            const data = (await response.json()) as ApprovalResponse;
+            const data = (await response.json()) as {
+                status: string;
+                phaseToken?: string;
+            };
 
-            if (data.status === "approved" && data.token) {
-                console.log("Approved!");
-                return data.token;
+            if (data.status === "approved" && data.phaseToken) {
+                return {
+                    phaseToken: data.phaseToken
+                };
             }
 
             if (data.status === "denied") {
                 throw new ApprovalError(
-                    `Access denied for appId="${params.appId}", envName="${params.envName}"`,
+                    `Access denied for path="${params.path}"`,
                     "DENIED"
                 );
             }
-
-            // Still pending, continue polling
         } catch (error) {
             if (error instanceof ApprovalError) {
                 throw error;
             }
-            // Network error, continue polling
         }
     }
 
@@ -150,71 +109,39 @@ function sleep(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-// Default export for convenience
-export default { getApprovedToken, createApprovedPhase, ApprovalError };
+export interface PhaseDefaults extends Partial<GetSecretOptions> { }
 
-// --- Phase Integration ---
-
-import Phase from '@phase.dev/phase-node';
-import type { GetSecretOptions } from '@phase.dev/phase-node';
-
-/**
- * Options for configuring the Phase client defaults.
- * Any options provided here will be automatically applied to phase.get() calls
- * unless overridden.
- */
-export interface PhaseDefaults extends Partial<GetSecretOptions> {
-    // We can add other Phase-specific defaults here if needed later
-}
-
-/**
- * Combined options for approval and Phase defaults.
- */
 export interface CreateApprovedPhaseOptions extends ApprovalOptions, PhaseDefaults { }
 
-/**
- * A wrapper around the Phase client that applies default options.
- */
 export type WrappedPhase = Omit<Phase, 'get'> & {
-    /**
-     * Fetch secrets with automatic default options application.
-     */
     get(options?: Partial<GetSecretOptions>): Promise<any>;
-    /**
-     * Access to the underlying raw Phase client instance.
-     */
     _raw: Phase;
 };
 
-/**
- * Request approval and return an initialized, configured Phase client.
- *
- * @param params - The appId, envName, and optional path to request approval for
- * @param options - Configuration for both the approval process and Phase defaults
- * @returns Promise resolving to a wrapped Phase client
- *
- * @example
- * ```typescript
- * const phase = await createApprovedPhase(
- *   { appId: 'my-app-id', envName: 'Production', path: '/database' },
- *   { timeout: 60000 }
- * );
- *
- * // Automatically uses 'Production' and 'my-app-id'
- * const secrets = await phase.get();
- * ```
- */
 export async function createApprovedPhase(
-    params: ApprovalRequestParams,
+    path: string,
     options: CreateApprovedPhaseOptions = {}
 ): Promise<WrappedPhase> {
-    // 1. Get the approved token
-    const token = await getApprovedToken(params, options);
+    const appId = process.env.PHASE_APP_ID;
+    const envName = process.env.PHASE_ENV_NAME || "Production";
 
-    // 2. Initialize Phase
-    const phase = new Phase(token);
+    if (!appId) {
+        throw new Error("PHASE_APP_ID environment variable is required");
+    }
 
-    // 3. Set defaults from params
+    const params: ApprovalRequestParams = {
+        appId: appId,
+        envName: envName,
+        path: path
+    };
+
+    const approval = await getApproval(params, {
+        ...options,
+        timeout: 60000
+    });
+
+    const phase = new Phase(approval.phaseToken);
+
     const defaults: PhaseDefaults = {
         appId: params.appId,
         envName: params.envName,
@@ -222,34 +149,53 @@ export async function createApprovedPhase(
         ...options
     };
 
-    // 4. Wrap it with defaults
     return wrapPhase(phase, defaults);
 }
 
-/**
- * Helper to wrap a Phase instance with default options.
- */
-function wrapPhase(phase: Phase, defaults: PhaseDefaults): WrappedPhase {
-    // Create a proxy to intercept .get() calls
+function wrapPhase(
+    phase: Phase,
+    defaults: PhaseDefaults
+): WrappedPhase {
     const wrapper = new Proxy(phase, {
         get(target, prop, receiver) {
             if (prop === 'get') {
                 return async (options: Partial<GetSecretOptions> = {}) => {
-                    // Merge defaults with provided options
-                    // Provided options take precedence
                     const mergedOptions = { ...defaults, ...options };
-
-                    // Ensure required fields are present if possible, though Phase SDK validation will handle missing ones
                     return target.get(mergedOptions as GetSecretOptions);
                 };
             }
             if (prop === '_raw') {
                 return target;
             }
-            // Forward all other properties/methods to the original instance
             return Reflect.get(target, prop, receiver);
         }
     });
 
     return wrapper as unknown as WrappedPhase;
 }
+
+export async function getApprovedToken(
+    path: string,
+    options: ApprovalOptions = {}
+): Promise<string> {
+    const appId = process.env.PHASE_APP_ID;
+    const envName = process.env.PHASE_ENV_NAME || "Production";
+
+    if (!appId) {
+        throw new Error("PHASE_APP_ID environment variable is required");
+    }
+
+    const params: ApprovalRequestParams = {
+        appId: appId,
+        envName: envName,
+        path: path
+    };
+
+    const result = await getApproval(params, {
+        ...options,
+        timeout: 60000
+    });
+    return result.phaseToken;
+}
+
+export default { getApproval, getApprovedToken, createApprovedPhase, ApprovalError };
