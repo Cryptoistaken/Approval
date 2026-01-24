@@ -80,7 +80,7 @@ const server = Bun.serve({
 
     routes: {
         // Health check endpoint - always available
-        "/health": new Response("OK", { status: 200 }),
+        "/health": () => new Response("OK", { status: 200 }),
 
         // Create approval request
         "/request": {
