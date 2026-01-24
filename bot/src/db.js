@@ -1,6 +1,10 @@
 import { Database } from "bun:sqlite";
+import { mkdir } from "node:fs/promises";
 
 const DATA_DIR = process.env.DATA_DIR || "./data";
+
+// Ensure data directory exists
+await mkdir(DATA_DIR, { recursive: true });
 
 await Bun.write(`${DATA_DIR}/.keep`, "");
 
