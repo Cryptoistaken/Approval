@@ -20,37 +20,46 @@ Crion ensures that sensitive secrets are only accessed with explicit human appro
 
 ---
 
+## Choose Your Setup
+
+| Option | Description | Best For |
+|--------|-------------|----------|
+| **[Use Shared Bot](#quick-start-shared-bot)** | Use our hosted `@CrionDevBot` | Quick start, no server needed |
+| **[Self-Host](#self-hosting-your-own-bot)** | Deploy your own bot instance | Full control, privacy |
+
+---
+
 ## Quick Start (Shared Bot)
 
-The easiest way to use Crion is with our hosted bot.
+Use our hosted bot - no server required!
 
-### 1. Register Your App
+### Step 1: Register Your App
 
 1. Open Telegram and message **[@CrionDevBot](https://t.me/CrionDevBot)**
 2. Send `/start`
 3. Click **"📝 Register App"**
 4. Enter your **Phase App ID** (from Phase.dev dashboard)
-5. Paste your **Phase Service Token** (will be auto-deleted for security)
+5. Paste your **Phase Service Token** (auto-deleted for security)
 
-### 2. Install the SDK
+### Step 2: Install the SDK
 
 ```bash
 npm install @cryptoistaken/crion
 ```
 
-### 3. Configure Environment
+### Step 3: Configure Your Project
 
 ```bash
 # .env
 PHASE_APP_ID=your-phase-app-id
 ```
 
-### 4. Use in Your Code
+### Step 4: Use in Your Code
 
 ```typescript
 import { createApprovedPhase } from '@cryptoistaken/crion';
 
-// This will send an approval request to your Telegram
+// This sends an approval request to your Telegram
 const phase = await createApprovedPhase('/chatbot');
 
 // After you approve, secrets are fetched
@@ -60,122 +69,121 @@ console.log(secrets.API_KEY);
 
 ---
 
-## Self-Hosting
+## Self-Hosting (Your Own Bot)
 
-For complete control and privacy, you can host your own Crion bot.
+Host your own Crion bot for complete control and privacy.
 
-### Deployment Options
+### What You'll Need
 
-Crion bot supports two hosting modes:
+1. **Your own Telegram Bot** (create via @BotFather)
+2. **A server** (Railway, Render, VPS, etc.)
+3. **Your Phase.dev credentials**
 
-| Mode | Description | Use Case |
-|------|-------------|----------|
-| **Simple Mode** | Single user, all requests go to you | Personal projects |
-| **Multi-Tenant Mode** | Multiple users register their own apps | Running as a service |
+### Step 1: Create Your Telegram Bot
 
----
+1. Open Telegram and message **[@BotFather](https://t.me/BotFather)**
+2. Send `/newbot`
+3. Follow the prompts to name your bot
+4. **Save the Bot Token** (looks like `123456789:ABCdefGHI...`)
 
-## Simple Mode (Self-Hosted)
+### Step 2: Get Your Telegram Chat ID
 
-Best for personal use or small teams.
+1. Message **[@userinfobot](https://t.me/userinfobot)** on Telegram
+2. It replies with your Chat ID (a number like `123456789`)
 
-### One-Click Deploy
+### Step 3: Deploy the Bot
+
+#### Option A: One-Click Railway Deploy
 
 [![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/new/template?template=https://github.com/Cryptoistaken/Crion)
 
-### Manual Setup
-
-#### 1. Create a Telegram Bot
-
-1. Open Telegram and message **[@BotFather](https://t.me/BotFather)**
-2. Send `/newbot` and follow the prompts
-3. Save your **Bot Token**
-
-#### 2. Get Your Chat ID
-
-1. Message **[@userinfobot](https://t.me/userinfobot)** on Telegram
-2. It will reply with your Chat ID (a number like `123456789`)
-
-#### 3. Deploy to Railway
-
-1. Fork this repository
-2. Connect to [Railway](https://railway.app)
-3. Set environment variables:
+Set these environment variables in Railway:
 
 ```bash
-TELEGRAM_BOT_TOKEN=8568632322:AAHy...    # From BotFather
-TELEGRAM_ADMIN_CHAT_ID=123456789          # Your Chat ID
-PHASE_TOKEN=pss_service:v2:...            # Your Phase service token
+TELEGRAM_BOT_TOKEN=123456789:ABCdef...  # Your bot token from Step 1
+TELEGRAM_ADMIN_CHAT_ID=123456789         # Your chat ID from Step 2
+PHASE_TOKEN=pss_service:v2:...           # Your Phase service token
 ```
 
-4. **Add a Volume** (for persistent database):
-   - Go to Settings → Volumes
-   - Add a volume mounted at `/data`
-   - Set `DATA_DIR=/data` in environment variables
+**Important:** Add a Volume for database persistence:
+1. Go to Settings → Volumes
+2. Mount at `/data`
+3. Add `DATA_DIR=/data` to environment variables
 
-5. **Set up Webhook** (after deployment):
+#### Option B: Docker
 
 ```bash
-curl -X POST "https://api.telegram.org/bot<YOUR_BOT_TOKEN>/setWebhook?url=https://your-app.railway.app/webhook"
+docker run -d \
+  -e TELEGRAM_BOT_TOKEN=your-bot-token \
+  -e TELEGRAM_ADMIN_CHAT_ID=your-chat-id \
+  -e PHASE_TOKEN=your-phase-token \
+  -e DATA_DIR=/data \
+  -v crion-data:/data \
+  -p 3000:3000 \
+  ghcr.io/cryptoistaken/crion
 ```
 
-#### 4. Configure Your SDK
+#### Option C: Manual (Bun)
 
 ```bash
-# .env in your project
-PHASE_APP_ID=your-phase-app-id
-APPROVAL_API_URL=https://your-app.railway.app
-```
-
-### Local Development
-
-```bash
-cd bot
+git clone https://github.com/Cryptoistaken/Crion.git
+cd Crion/bot
 cp .env.example .env
 # Edit .env with your tokens
-
 bun install
-bun dev
+bun start
+```
+
+### Step 4: Set Up Webhook
+
+After your bot is deployed and running, connect it to Telegram:
+
+```bash
+curl -X POST "https://api.telegram.org/bot<YOUR_BOT_TOKEN>/setWebhook?url=https://your-bot-url.com/webhook"
+```
+
+Replace:
+- `<YOUR_BOT_TOKEN>` with your bot token from Step 1
+- `https://your-bot-url.com` with your deployed bot URL
+
+### Step 5: Configure Your SDK
+
+In your project's `.env`:
+
+```bash
+PHASE_APP_ID=your-phase-app-id
+APPROVAL_API_URL=https://your-bot-url.com
+```
+
+### Step 6: Test It!
+
+```typescript
+import { createApprovedPhase } from '@cryptoistaken/crion';
+
+const phase = await createApprovedPhase('/test');
+// You should receive an approval request in Telegram!
 ```
 
 ---
 
-## Multi-Tenant Mode (Running as a Service)
+## Environment Variables Reference
 
-Run Crion as a shared service for multiple users.
+### Bot Server
 
-### Configuration
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `TELEGRAM_BOT_TOKEN` | ✅ Yes | Your bot token from @BotFather |
+| `TELEGRAM_ADMIN_CHAT_ID` | ✅ Yes | Your Telegram chat ID |
+| `PHASE_TOKEN` | ✅ Yes | Your Phase service token |
+| `PORT` | No | Server port (default: 3000) |
+| `DATA_DIR` | No | SQLite directory (default: ./data) |
 
-**Do NOT set** `TELEGRAM_ADMIN_CHAT_ID` - this enables multi-tenant mode.
+### SDK (Your Project)
 
-```bash
-TELEGRAM_BOT_TOKEN=8568632322:AAHy...    # From BotFather
-# No TELEGRAM_ADMIN_CHAT_ID = Multi-tenant mode
-# No PHASE_TOKEN = Users provide their own
-DATA_DIR=/data                            # Persistent storage
-```
-
-### How It Works
-
-1. Users message your bot and click "Register App"
-2. They provide their Phase App ID and Service Token
-3. Their credentials are stored in your database
-4. Each user's approval requests go to their own Telegram chat
-5. On approval, their own Phase token is used
-
-### Database Persistence
-
-**Important:** You MUST set up persistent storage for the SQLite database.
-
-**Railway:**
-1. Go to Settings → Volumes
-2. Mount a volume at `/data`
-3. Set `DATA_DIR=/data`
-
-**Docker:**
-```bash
-docker run -v crion-data:/data -e DATA_DIR=/data crion
-```
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `PHASE_APP_ID` | ✅ Yes | Your Phase App ID |
+| `APPROVAL_API_URL` | No | Bot URL (default: https://crion.up.railway.app) |
 
 ---
 
@@ -186,25 +194,14 @@ docker run -v crion-data:/data -e DATA_DIR=/data crion
 Create an approval request.
 
 ```bash
-curl -X POST https://crion.up.railway.app/request \
+curl -X POST https://your-bot.com/request \
   -H "Content-Type: application/json" \
-  -d '{"appId": "your-app-id", "envName": "production", "path": "/api"}'
-```
-
-**Request Body:**
-```json
-{
-  "appId": "your-phase-app-id",
-  "envName": "production",
-  "path": "/optional/path/filter"
-}
+  -d '{"appId": "your-app-id", "envName": "production"}'
 ```
 
 **Response:**
 ```json
-{
-  "requestId": "req_abc12345"
-}
+{ "requestId": "req_abc12345" }
 ```
 
 ### GET /status/:id
@@ -212,95 +209,53 @@ curl -X POST https://crion.up.railway.app/request \
 Check request status.
 
 ```bash
-curl https://crion.up.railway.app/status/req_abc12345
+curl https://your-bot.com/status/req_abc12345
 ```
 
-**Pending Response:**
+**Responses:**
 ```json
-{
-  "status": "pending"
-}
-```
-
-**Approved Response:**
-```json
-{
-  "status": "approved",
-  "phaseToken": "pss_service:v2:..."
-}
-```
-
-**Denied Response:**
-```json
-{
-  "status": "denied"
-}
+{ "status": "pending" }
+{ "status": "approved", "phaseToken": "pss_service:v2:..." }
+{ "status": "denied" }
 ```
 
 ### GET /health
 
-Health check endpoint.
+Health check.
 
 ```bash
-curl https://crion.up.railway.app/health
+curl https://your-bot.com/health
 # OK
 ```
-
-### POST /webhook
-
-Telegram webhook endpoint (set this as your bot's webhook URL).
-
----
-
-## Environment Variables
-
-| Variable | Required | Mode | Description |
-|----------|----------|------|-------------|
-| `TELEGRAM_BOT_TOKEN` | ✅ | Both | Telegram bot token from @BotFather |
-| `TELEGRAM_ADMIN_CHAT_ID` | Simple only | Simple | Your Telegram chat ID |
-| `PHASE_TOKEN` | Simple only | Simple | Your Phase service token |
-| `PORT` | ❌ | Both | Server port (default: 3000) |
-| `DATA_DIR` | ❌ | Both | SQLite data directory (default: ./data) |
-
----
-
-## SDK Configuration
-
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `PHASE_APP_ID` | ✅ | Your Phase App ID |
-| `APPROVAL_API_URL` | ❌ | Bot URL (default: https://crion.up.railway.app) |
 
 ---
 
 ## Project Structure
 
 ```
-.
-├── bot/                    # Crion Bot (Bun + Telegraf)
+Crion/
+├── bot/                    # Bot Server (Bun + Telegraf)
 │   ├── index.js           # HTTP server & entry point
 │   ├── src/
-│   │   ├── bot.js         # Telegram bot handlers
+│   │   ├── bot.js         # Telegram handlers
 │   │   └── db.js          # SQLite database
 │   ├── package.json
-│   └── railway.json       # Railway deployment config
+│   └── railway.json       # Railway config
 │
-├── sdk/                    # Crion SDK (TypeScript)
-│   ├── index.ts           # SDK entry point
+├── sdk/                    # SDK (npm package)
+│   ├── index.ts
 │   └── package.json
 │
-└── example/                # Example usage
-    └── index.ts
+└── example/                # Usage examples
 ```
 
 ---
 
-## Security
+## Security Notes
 
-- **Token Auto-Deletion:** When registering, the bot automatically deletes messages containing your Phase token
-- **Human-in-the-Loop:** Every secret access requires explicit Telegram approval
-- **Isolated Storage:** In multi-tenant mode, each user's credentials are isolated
-- **No Logging of Secrets:** Phase tokens are stored but never logged
+- 🔒 **Token Auto-Deletion**: Bot automatically deletes messages containing Phase tokens
+- 👤 **Human-in-the-Loop**: Every secret access requires explicit Telegram approval
+- 🚫 **No Secret Logging**: Phase tokens are stored but never logged
 
 ---
 
