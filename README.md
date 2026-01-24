@@ -237,10 +237,7 @@ curl https://your-bot.com/health
 ```
 Crion/
 ├── bot/                    # Bot Server (Bun + Telegraf)
-│   ├── index.js           # HTTP server & entry point
-│   ├── src/
-│   │   ├── bot.js         # Telegram handlers
-│   │   └── db.js          # SQLite database
+│   ├── index.js           # Single-file server & bot
 │   ├── package.json
 │   └── railway.json       # Railway config
 │
