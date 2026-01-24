@@ -22,6 +22,10 @@
  *   Simple Mode Only:
  *   TELEGRAM_ADMIN_CHAT_ID - Your Telegram chat ID
  *   PHASE_TOKEN            - Your Phase service token
+ *   
+ *   Auto-Webhook (Optional):
+ *   BOT_URL                - Public URL of this bot (auto-sets webhook)
+ *   RAILWAY_PUBLIC_DOMAIN  - Auto-detected on Railway
  */
 
 // ============================================================================
@@ -38,6 +42,7 @@ console.log(`  TELEGRAM_BOT_TOKEN:    ${process.env.TELEGRAM_BOT_TOKEN ? "✓ SE
 console.log(`  TELEGRAM_ADMIN_CHAT_ID: ${process.env.TELEGRAM_ADMIN_CHAT_ID || "(not set - multi-tenant mode)"}`);
 console.log(`  PHASE_TOKEN:           ${process.env.PHASE_TOKEN ? "✓ SET" : "(not set)"}`);
 console.log(`  DATA_DIR:              ${process.env.DATA_DIR || "./data (default)"}`);
+console.log(`  BOT_URL:               ${process.env.BOT_URL || process.env.RAILWAY_PUBLIC_DOMAIN || "(not set - manual webhook setup)"}`);
 console.log("");
 
 // ============================================================================
@@ -261,6 +266,31 @@ async function initializeApp() {
         console.log("╔══════════════════════════════════════╗");
         console.log("║         Crion Bot Ready! ✓           ║");
         console.log("╚══════════════════════════════════════╝");
+
+        // Auto-setup webhook if BOT_URL or RAILWAY_PUBLIC_DOMAIN is set
+        const botUrl = process.env.BOT_URL ||
+            (process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : null);
+
+        if (botUrl) {
+            try {
+                const webhookUrl = `${botUrl}/webhook`;
+                const telegramApi = `https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/setWebhook?url=${encodeURIComponent(webhookUrl)}`;
+
+                const response = await fetch(telegramApi, { method: 'POST' });
+                const result = await response.json();
+
+                if (result.ok) {
+                    console.log(`\n✓ Webhook auto-configured: ${webhookUrl}`);
+                } else {
+                    console.error(`\n✗ Webhook setup failed: ${result.description}`);
+                }
+            } catch (err) {
+                console.error(`\n✗ Webhook setup error: ${err.message}`);
+            }
+        } else {
+            console.log("\nℹ Set BOT_URL to auto-configure webhook, or run manually:");
+            console.log(`  curl -X POST "https://api.telegram.org/bot<TOKEN>/setWebhook?url=<YOUR_URL>/webhook"`);
+        }
 
     } catch (error) {
         console.error("");

@@ -136,17 +136,16 @@ bun install
 bun start
 ```
 
-### Step 4: Set Up Webhook
+### Step 4: Webhook Setup
 
-After your bot is deployed and running, connect it to Telegram:
+**On Railway:** The webhook is **automatically configured** - no action needed! Railway provides `RAILWAY_PUBLIC_DOMAIN` which the bot uses to set up its own webhook.
 
+**On other platforms:** Set the `BOT_URL` environment variable to your public URL, and the bot will auto-configure the webhook on startup.
+
+**Manual setup (if needed):**
 ```bash
 curl -X POST "https://api.telegram.org/bot<YOUR_BOT_TOKEN>/setWebhook?url=https://your-bot-url.com/webhook"
 ```
-
-Replace:
-- `<YOUR_BOT_TOKEN>` with your bot token from Step 1
-- `https://your-bot-url.com` with your deployed bot URL
 
 ### Step 5: Configure Your SDK
 
@@ -177,6 +176,7 @@ const phase = await createApprovedPhase('/test');
 | `TELEGRAM_BOT_TOKEN` | ✅ Yes | Your bot token from @BotFather |
 | `TELEGRAM_ADMIN_CHAT_ID` | ✅ Yes | Your Telegram chat ID |
 | `PHASE_TOKEN` | ✅ Yes | Your Phase service token |
+| `BOT_URL` | No | Public URL for auto-webhook (auto-detected on Railway) |
 | `PORT` | No | Server port (default: 3000) |
 | `DATA_DIR` | No | SQLite directory (default: ./data) |
 
