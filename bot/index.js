@@ -1,21 +1,6 @@
-/**
- * Crion Bot - Simple Mode Only
- * Personal approval bot for Phase.dev secrets
- * 
- * Required Environment Variables:
- *   TELEGRAM_BOT_TOKEN    - From @BotFather
- *   TELEGRAM_ADMIN_CHAT_ID - Your Telegram chat ID
- *   PHASE_TOKEN           - Your Phase service token
- *   PHASE_APP_ID          - Your Phase app ID (optional, for validation)
- */
-
 import { Telegraf, Markup } from "telegraf";
 import { Database } from "bun:sqlite";
 import { mkdir } from "node:fs/promises";
-
-// ============================================================================
-// CONFIGURATION
-// ============================================================================
 
 const PORT = parseInt(process.env.PORT || "3000");
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
@@ -26,13 +11,7 @@ const DATA_DIR = process.env.DATA_DIR || "./data";
 const BOT_URL = process.env.BOT_URL ||
     (process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : null);
 
-console.log("╔══════════════════════════════════════╗");
-console.log("║        Crion Approval Bot            ║");
-console.log("╚══════════════════════════════════════╝");
-
-// ============================================================================
-// VALIDATION
-// ============================================================================
+console.log("Crion Approval Bot starting...");
 
 if (!BOT_TOKEN) {
     console.error("ERROR: TELEGRAM_BOT_TOKEN required");
@@ -46,13 +25,13 @@ if (!PHASE_TOKEN) {
     console.error("ERROR: PHASE_TOKEN required");
     process.exit(1);
 }
+if (!PHASE_APP_ID) {
+    console.error("ERROR: PHASE_APP_ID required");
+    process.exit(1);
+}
 
 console.log(`Chat ID: ${CHAT_ID}`);
-if (PHASE_APP_ID) console.log(`App ID: ${PHASE_APP_ID}`);
-
-// ============================================================================
-// DATABASE
-// ============================================================================
+console.log(`App ID: ${PHASE_APP_ID}`);
 
 await mkdir(DATA_DIR, { recursive: true });
 const db = new Database(`${DATA_DIR}/approvals.db`);
@@ -60,7 +39,6 @@ const db = new Database(`${DATA_DIR}/approvals.db`);
 db.exec(`
     CREATE TABLE IF NOT EXISTS requests (
         id TEXT PRIMARY KEY,
-        app_id TEXT,
         env TEXT,
         path TEXT,
         status TEXT DEFAULT 'pending',
@@ -68,18 +46,14 @@ db.exec(`
     );
 `);
 
-const insert = db.prepare("INSERT INTO requests (id, app_id, env, path, status, created_at) VALUES (?, ?, ?, ?, 'pending', ?)");
+const insert = db.prepare("INSERT INTO requests (id, env, path, status, created_at) VALUES (?, ?, ?, 'pending', ?)");
 const get = db.prepare("SELECT * FROM requests WHERE id = ?");
 const update = db.prepare("UPDATE requests SET status = ? WHERE id = ?");
-
-// ============================================================================
-// TELEGRAM BOT
-// ============================================================================
 
 const bot = new Telegraf(BOT_TOKEN);
 
 bot.start((ctx) => {
-    ctx.reply(`🛡️ Crion Bot\n\nYour Chat ID: ${ctx.chat.id}\n\nThis bot handles approval requests for Phase.dev secrets.`);
+    ctx.reply(`Crion Bot\n\nYour Chat ID: ${ctx.chat.id}\n\nThis bot handles approval requests for Phase.dev secrets.`);
 });
 
 bot.action(/^approve_(.+)$/, async (ctx) => {
@@ -89,8 +63,8 @@ bot.action(/^approve_(.+)$/, async (ctx) => {
         return ctx.answerCbQuery("Already processed");
     }
     update.run("approved", id);
-    await ctx.answerCbQuery("✅ Approved");
-    ctx.editMessageText(`✅ APPROVED\n\nApp: ${req.app_id}\nEnv: ${req.env}${req.path ? `\nPath: ${req.path}` : ""}`);
+    await ctx.answerCbQuery("Approved");
+    ctx.editMessageText(`APPROVED\n\nEnv: ${req.env}${req.path ? `\nPath: ${req.path}` : ""}`);
 });
 
 bot.action(/^deny_(.+)$/, async (ctx) => {
@@ -100,13 +74,9 @@ bot.action(/^deny_(.+)$/, async (ctx) => {
         return ctx.answerCbQuery("Already processed");
     }
     update.run("denied", id);
-    await ctx.answerCbQuery("❌ Denied");
-    ctx.editMessageText(`❌ DENIED\n\nApp: ${req.app_id}\nEnv: ${req.env}${req.path ? `\nPath: ${req.path}` : ""}`);
+    await ctx.answerCbQuery("Denied");
+    ctx.editMessageText(`DENIED\n\nEnv: ${req.env}${req.path ? `\nPath: ${req.path}` : ""}`);
 });
-
-// ============================================================================
-// HTTP SERVER
-// ============================================================================
 
 const server = Bun.serve({
     port: PORT,
@@ -114,12 +84,10 @@ const server = Bun.serve({
         const url = new URL(req.url);
         const path = url.pathname;
 
-        // Health check
         if (path === "/health") {
             return new Response("OK");
         }
 
-        // Create approval request
         if (path === "/request" && req.method === "POST") {
             try {
                 const body = await req.json();
@@ -128,23 +96,16 @@ const server = Bun.serve({
                     return Response.json({ error: "envName required" }, { status: 400 });
                 }
 
-                // Validate app ID if set
-                if (PHASE_APP_ID && body.appId && body.appId !== PHASE_APP_ID) {
-                    return Response.json({ error: "Invalid app ID" }, { status: 403 });
-                }
-
                 const id = `req_${crypto.randomUUID()}`;
-                const appId = body.appId || PHASE_APP_ID || "default";
-
-                insert.run(id, appId, body.envName, body.path || "", Date.now());
+                insert.run(id, body.envName, body.path || "", Date.now());
 
                 await bot.telegram.sendMessage(CHAT_ID,
-                    `🔐 <b>Access Request</b>\n\nEnv: <b>${body.envName}</b>${body.path ? `\nPath: ${body.path}` : ""}`,
+                    `<b>Access Request</b>\n\nEnv: <b>${body.envName}</b>${body.path ? `\nPath: ${body.path}` : ""}`,
                     {
                         parse_mode: "HTML",
                         ...Markup.inlineKeyboard([
-                            [Markup.button.callback("✅ Approve", `approve_${id}`),
-                            Markup.button.callback("❌ Deny", `deny_${id}`)]
+                            [Markup.button.callback("Approve", `approve_${id}`),
+                            Markup.button.callback("Deny", `deny_${id}`)]
                         ])
                     }
                 );
@@ -156,7 +117,6 @@ const server = Bun.serve({
             }
         }
 
-        // Check status
         if (path.startsWith("/status/")) {
             const id = path.slice(8);
             const req = get.get(id);
@@ -165,25 +125,22 @@ const server = Bun.serve({
                 return Response.json({ error: "Not found" }, { status: 404 });
             }
 
-            // Expired after 5 minutes
             if (req.status === "pending" && Date.now() - req.created_at > 5 * 60 * 1000) {
                 return Response.json({ status: "expired" });
             }
 
             if (req.status === "approved") {
-                // Return token AND app ID (one-time - delete after)
                 update.run("consumed", id);
                 return Response.json({
                     status: "approved",
                     phaseToken: PHASE_TOKEN,
-                    appId: PHASE_APP_ID  // Return the configured app ID, not from request
+                    appId: PHASE_APP_ID
                 });
             }
 
             return Response.json({ status: req.status });
         }
 
-        // Telegram webhook
         if (path === "/webhook" && req.method === "POST") {
             try {
                 await bot.handleUpdate(await req.json());
@@ -199,10 +156,9 @@ const server = Bun.serve({
 
 console.log(`Server ready on port ${server.port}`);
 
-// Auto-configure webhook
 if (BOT_URL) {
     fetch(`https://api.telegram.org/bot${BOT_TOKEN}/setWebhook?url=${encodeURIComponent(BOT_URL + "/webhook")}`, { method: "POST" })
         .then(r => r.json())
-        .then(d => console.log(d.ok ? `✓ Webhook: ${BOT_URL}/webhook` : `✗ ${d.description}`))
+        .then(d => console.log(d.ok ? `Webhook: ${BOT_URL}/webhook` : `Webhook error: ${d.description}`))
         .catch(e => console.error("Webhook error:", e.message));
 }

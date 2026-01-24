@@ -1,28 +1,16 @@
-/**
- * Crion SDK - Simple Mode
- * Request human approval for Phase.dev secrets via Telegram
- */
-
 import Phase from '@phase.dev/phase-node';
 import type { GetSecretOptions } from '@phase.dev/phase-node';
 
-// ============================================================================
-// CONFIGURATION
-// ============================================================================
-
 const DEFAULT_API_URL = process.env.APPROVAL_API_URL || "https://crion.up.railway.app";
 const DEFAULT_ENV = process.env.PHASE_ENV_NAME || "production";
-const DEFAULT_APP_ID = process.env.PHASE_APP_ID; // Only if explicitly set
-
-// ============================================================================
-// TYPES
-// ============================================================================
+const DEFAULT_APP_ID = process.env.PHASE_APP_ID;
 
 export interface ApprovalOptions {
     apiUrl?: string;
     timeout?: number;
     pollInterval?: number;
     envName?: string;
+    appId?: string;
 }
 
 export class ApprovalError extends Error {
@@ -35,39 +23,30 @@ export class ApprovalError extends Error {
     }
 }
 
-// ============================================================================
-// MAIN FUNCTION
-// ============================================================================
+export interface ApprovedPhase {
+    get(options?: Partial<GetSecretOptions>): Promise<Record<string, string>>;
+    phase: Phase;
+    appId: string;
+    envName: string;
+}
 
-/**
- * Request approval and get a Phase instance
- * 
- * @param path - Path/identifier for this request (shown in Telegram)
- * @param options - Optional configuration
- * @returns Phase instance ready to fetch secrets
- * 
- * @example
- * const phase = await createApprovedPhase('/my-script');
- * const secrets = await phase.get();
- * console.log(secrets.API_KEY);
- */
 export async function createApprovedPhase(
     path: string,
     options: ApprovalOptions = {}
-): Promise<Phase> {
+): Promise<ApprovedPhase> {
     const apiUrl = options.apiUrl || DEFAULT_API_URL;
-    const timeout = options.timeout ?? 300000; // 5 min default
+    const timeout = options.timeout ?? 300000;
     const pollInterval = options.pollInterval ?? 2000;
     const envName = options.envName || DEFAULT_ENV;
+    const requestAppId = options.appId || DEFAULT_APP_ID;
 
-    // Create request
-    console.log(`🔐 Requesting approval for: ${path}`);
+    console.log(`Requesting approval for: ${path}`);
 
     const response = await fetch(`${apiUrl}/request`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-            appId: DEFAULT_APP_ID,
+            appId: requestAppId,
             envName: envName,
             path: path
         }),
@@ -82,9 +61,8 @@ export async function createApprovedPhase(
     }
 
     const { requestId } = await response.json() as { requestId: string };
-    console.log(`⏳ Waiting for Telegram approval...`);
+    console.log(`Waiting for Telegram approval...`);
 
-    // Poll for approval
     const startTime = Date.now();
 
     while (Date.now() - startTime < timeout) {
@@ -99,13 +77,30 @@ export async function createApprovedPhase(
             };
 
             if (data.status === "approved" && data.phaseToken) {
-                console.log(`✅ Approved!`);
-                // Use appId from response, falling back to env var
-                const appId = data.appId || process.env.PHASE_APP_ID;
-                if (appId) {
-                    process.env.PHASE_APP_ID = appId;
+                console.log(`Approved!`);
+                const appId = data.appId || requestAppId;
+                if (!appId) {
+                    throw new ApprovalError("No appId returned from server", "NETWORK");
                 }
-                return new Phase(data.phaseToken);
+                const phase = new Phase(data.phaseToken);
+                return {
+                    phase,
+                    appId,
+                    envName,
+                    async get(opts: Partial<GetSecretOptions> = {}) {
+                        const result = await phase.get({
+                            appId: opts.appId || appId,
+                            envName: opts.envName || envName,
+                            path: opts.path,
+                            key: opts.key,
+                        });
+                        const secrets: Record<string, string> = {};
+                        for (const item of result) {
+                            secrets[item.key] = item.value;
+                        }
+                        return secrets;
+                    }
+                };
             }
 
             if (data.status === "denied") {
@@ -121,30 +116,27 @@ export async function createApprovedPhase(
             }
         } catch (error) {
             if (error instanceof ApprovalError) throw error;
-            // Network error, retry
         }
     }
 
     throw new ApprovalError(`Timeout after ${timeout / 1000}s`, "TIMEOUT");
 }
 
-/**
- * Request approval and return just the Phase token
- */
 export async function getApprovedToken(
     path: string,
     options: ApprovalOptions = {}
-): Promise<string> {
+): Promise<{ token: string; appId: string }> {
     const apiUrl = options.apiUrl || DEFAULT_API_URL;
     const timeout = options.timeout ?? 300000;
     const pollInterval = options.pollInterval ?? 2000;
     const envName = options.envName || DEFAULT_ENV;
+    const requestAppId = options.appId || DEFAULT_APP_ID;
 
     const response = await fetch(`${apiUrl}/request`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-            appId: DEFAULT_APP_ID,
+            appId: requestAppId,
             envName: envName,
             path: path
         }),
@@ -155,7 +147,7 @@ export async function getApprovedToken(
     }
 
     const { requestId } = await response.json() as { requestId: string };
-    console.log(`⏳ Waiting for approval: ${path}`);
+    console.log(`Waiting for approval: ${path}`);
 
     const startTime = Date.now();
 
@@ -163,11 +155,11 @@ export async function getApprovedToken(
         await sleep(pollInterval);
 
         const statusRes = await fetch(`${apiUrl}/status/${requestId}`);
-        const data = await statusRes.json() as { status: string; phaseToken?: string };
+        const data = await statusRes.json() as { status: string; phaseToken?: string; appId?: string };
 
         if (data.status === "approved" && data.phaseToken) {
-            console.log(`✅ Approved!`);
-            return data.phaseToken;
+            console.log(`Approved!`);
+            return { token: data.phaseToken, appId: data.appId || requestAppId || "" };
         }
 
         if (data.status === "denied") {
