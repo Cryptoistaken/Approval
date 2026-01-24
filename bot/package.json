@@ -1,5 +1,7 @@
 {
-    "name": "approval-bot",
+    "name": "crion-bot",
+    "version": "1.0.0",
+    "description": "Telegram-based human-in-the-loop approval system for Phase.dev secrets",
     "type": "module",
     "scripts": {
         "dev": "bun --hot index.js",
@@ -7,5 +9,8 @@
     },
     "dependencies": {
         "telegraf": "^4.16.0"
+    },
+    "engines": {
+        "bun": ">=1.0.0"
     }
 }
