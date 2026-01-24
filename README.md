@@ -95,7 +95,7 @@ Host your own Crion bot for complete control and privacy.
 
 #### Option A: One-Click Railway Deploy
 
-[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/new/template?template=https://github.com/Cryptoistaken/Crion)
+[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/crion?referralCode=4n_jis&utm_medium=integration&utm_source=template&utm_campaign=generic)
 
 Set these environment variables in Railway:
 
@@ -105,10 +105,12 @@ TELEGRAM_ADMIN_CHAT_ID=123456789         # Your chat ID from Step 2
 PHASE_TOKEN=pss_service:v2:...           # Your Phase service token
 ```
 
-**Important:** Add a Volume for database persistence:
+**Optional (Recommended):** For persistent data across restarts, add a Volume:
 1. Go to Settings → Volumes
 2. Mount at `/data`
 3. Add `DATA_DIR=/data` to environment variables
+
+*Without a volume, approval history resets on container restart.*
 
 #### Option B: Docker
 
