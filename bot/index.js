@@ -15,6 +15,7 @@ const PORT = parseInt(process.env.PORT || "3000");
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const ADMIN_CHAT_ID = process.env.TELEGRAM_ADMIN_CHAT_ID?.trim();
 const PHASE_TOKEN = process.env.PHASE_TOKEN;
+const PHASE_APP_ID = process.env.PHASE_APP_ID?.trim(); // Optional: restrict to specific app
 const DATA_DIR = process.env.DATA_DIR || "./data";
 const SIMPLE_MODE = !!ADMIN_CHAT_ID;
 
@@ -27,6 +28,7 @@ console.log("║        Crion Approval Bot            ║");
 console.log("╚══════════════════════════════════════╝");
 console.log(`PORT: ${PORT}`);
 console.log(`MODE: ${SIMPLE_MODE ? "SIMPLE" : "MULTI-TENANT"}`);
+if (PHASE_APP_ID) console.log(`APP_ID: ${PHASE_APP_ID}`);
 
 // ============================================================================
 // VALIDATION
@@ -166,6 +168,11 @@ const server = Bun.serve({
                 const body = await req.json();
                 if (!body.appId || !body.envName) {
                     return Response.json({ error: "appId and envName required" }, { status: 400 });
+                }
+
+                // In Simple Mode with PHASE_APP_ID set, validate the app ID
+                if (SIMPLE_MODE && PHASE_APP_ID && body.appId !== PHASE_APP_ID) {
+                    return Response.json({ error: "Invalid app ID" }, { status: 403 });
                 }
 
                 const chatId = SIMPLE_MODE ? ADMIN_CHAT_ID : getApp.get(body.appId)?.chat_id;
