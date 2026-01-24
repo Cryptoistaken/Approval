@@ -26,8 +26,6 @@ In Telegram, DM **@CrionDevBot** and click **Start**.
 In your `.env`:
 ```bash
 PHASE_APP_ID=your-phase-app-id
-# Optional: Defaults to https://crion-bot-production.up.railway.app
-# APPROVAL_API_URL=https://your-self-hosted-bot.com
 ```
 
 ### 3. Usage
@@ -41,9 +39,9 @@ const secrets = await phase.get();
 
 ---
 
-## For Bot Operators (Self-Hosting)
+## Self-Hosting (Simple Mode)
 
-If you prefer to host your own bot for complete control.
+For complete control, host your own bot with just 3 env vars.
 
 ### 1. Deploy the Bot
 
@@ -53,30 +51,25 @@ If you prefer to host your own bot for complete control.
 
 ```bash
 TELEGRAM_BOT_TOKEN=your-bot-token-from-botfather
+TELEGRAM_ADMIN_CHAT_ID=your-telegram-chat-id
+PHASE_TOKEN=pss_service:v2:your-phase-token
 ```
 
-*Note: `TELEGRAM_ADMIN_CHAT_ID` and `PHASE_TOKEN` are NO LONGER required in env vars. You must register via Telegram command.*
+### 3. Point SDK to Your Bot
 
-### 3. Usage
-
-Register yourself with your own bot by sending `/start` and following the prompts.
-
-## SDK Usage Flows
-
-**Flow 1: Environment Variables (Recommended)**
 ```bash
 PHASE_APP_ID=your-app-id
-```
-```typescript
-const phase = await createApprovedPhase('/chatbot');
+APPROVAL_API_URL=https://your-bot.railway.app
 ```
 
-**Flow 2: Per-Script Override**
-```typescript
-const phase = await createApprovedPhase('/chatbot', {
-    appId: 'my-other-app'
-});
-```
+---
+
+## Modes
+
+| Mode | When | Registration |
+|------|------|--------------|
+| **Simple** | `TELEGRAM_ADMIN_CHAT_ID` is set | Not needed |
+| **Registration** | `TELEGRAM_ADMIN_CHAT_ID` not set | Via Telegram wizard |
 
 ## License
 MIT

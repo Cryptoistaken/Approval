@@ -3,6 +3,14 @@ import { bot } from "./src/bot.js";
 import { insertRequest, getRequest, getApp } from "./src/db.js";
 
 const PORT = parseInt(process.env.PORT || "3000");
+const ADMIN_CHAT_ID = process.env.TELEGRAM_ADMIN_CHAT_ID;
+const SIMPLE_MODE = !!ADMIN_CHAT_ID;
+
+if (SIMPLE_MODE) {
+    console.log("Running in SIMPLE MODE (single-tenant)");
+} else {
+    console.log("Running in REGISTRATION MODE (multi-tenant)");
+}
 
 function generateId() {
     return `req_${crypto.randomUUID().slice(0, 8)}`;
@@ -32,13 +40,19 @@ const server = Bun.serve({
                         );
                     }
 
-                    const app = getApp.get(body.appId);
-                    if (!app) {
-                        console.log(`App ID not found: ${body.appId}`);
-                        return Response.json(
-                            { error: "App ID not registered or pending approval" },
-                            { status: 403 }
-                        );
+                    let chatId;
+                    if (SIMPLE_MODE) {
+                        chatId = ADMIN_CHAT_ID;
+                    } else {
+                        const app = getApp.get(body.appId);
+                        if (!app) {
+                            console.log(`App ID not found: ${body.appId}`);
+                            return Response.json(
+                                { error: "App ID not registered" },
+                                { status: 403 }
+                            );
+                        }
+                        chatId = app.chat_id;
                     }
 
                     const requestId = generateId();
@@ -58,7 +72,7 @@ const server = Bun.serve({
                     }
 
                     await bot.telegram.sendMessage(
-                        app.chat_id,
+                        chatId,
                         messageText,
                         {
                             parse_mode: "HTML",

@@ -2,23 +2,33 @@ import { Telegraf, Markup } from "telegraf";
 import { getRequest, updateStatus, registerApp, getApp } from "./db.js";
 
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+const PHASE_TOKEN = process.env.PHASE_TOKEN;
+const SIMPLE_MODE = !!process.env.TELEGRAM_ADMIN_CHAT_ID;
 
 if (!TELEGRAM_BOT_TOKEN) throw new Error("TELEGRAM_BOT_TOKEN required");
+if (SIMPLE_MODE && !PHASE_TOKEN) throw new Error("PHASE_TOKEN required in simple mode");
 
 export const bot = new Telegraf(TELEGRAM_BOT_TOKEN);
 
 const sessions = new Map();
 
 bot.start((ctx) => {
-    ctx.reply(
-        "Welcome to Crion Bot! 🛡️\n\nUse this bot to approve Phase secret access requests.",
-        Markup.inlineKeyboard([
-            Markup.button.callback("Register App", "register_start")
-        ])
-    );
+    if (SIMPLE_MODE) {
+        ctx.reply("Welcome to Crion Bot! 🛡️\n\nSimple mode active. You will receive approval requests here.");
+    } else {
+        ctx.reply(
+            "Welcome to Crion Bot! 🛡️\n\nUse this bot to approve Phase secret access requests.",
+            Markup.inlineKeyboard([
+                Markup.button.callback("Register App", "register_start")
+            ])
+        );
+    }
 });
 
 bot.action("register_start", (ctx) => {
+    if (SIMPLE_MODE) {
+        return ctx.answerCbQuery("Registration disabled in simple mode");
+    }
     const chatId = ctx.chat.id;
     sessions.set(chatId, { step: "APP_ID" });
     ctx.reply("Please enter your **Phase App ID**:");
@@ -26,6 +36,8 @@ bot.action("register_start", (ctx) => {
 });
 
 bot.on("text", async (ctx) => {
+    if (SIMPLE_MODE) return;
+
     const chatId = ctx.chat.id;
     const session = sessions.get(chatId);
 
@@ -72,13 +84,19 @@ bot.action(/^approve_(.+)$/, async (ctx) => {
         return;
     }
 
-    const app = getApp.get(request.app_id);
-    if (!app) {
-        await ctx.answerCbQuery("App not registered");
-        return;
+    let phaseToken;
+    if (SIMPLE_MODE) {
+        phaseToken = PHASE_TOKEN;
+    } else {
+        const app = getApp.get(request.app_id);
+        if (!app) {
+            await ctx.answerCbQuery("App not registered");
+            return;
+        }
+        phaseToken = app.phase_token;
     }
 
-    updateStatus.run("approved", app.phase_token, Date.now(), requestId);
+    updateStatus.run("approved", phaseToken, Date.now(), requestId);
 
     await ctx.answerCbQuery("Approved");
     await ctx.editMessageText(
