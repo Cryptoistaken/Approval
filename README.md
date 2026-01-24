@@ -19,6 +19,7 @@ Your Script → Crion → Telegram → You Approve → Secrets
 | `TELEGRAM_BOT_TOKEN` | Get from [@BotFather](https://t.me/BotFather) |
 | `TELEGRAM_ADMIN_CHAT_ID` | Get from [@userinfobot](https://t.me/userinfobot) |
 | `PHASE_TOKEN` | Your Phase service token |
+| `PHASE_APP_ID` | Your Phase App ID (Required) |
 
 ### 2. Install SDK
 
@@ -28,13 +29,26 @@ npm install @cryptoistaken/crion
 
 ### 3. Use
 
+#### Example: Calculation Script
+
 ```typescript
 import { createApprovedPhase } from '@cryptoistaken/crion';
 
-const phase = await createApprovedPhase('/my-script');
-const secrets = await phase.get({ path: '/' });
+async function main() {
+    // 1. Request approval
+    // The bot returns a token AND the correct App ID automatically
+    const phase = await createApprovedPhase('/numbers', {
+        envName: 'production' // defaults to 'production' if not set
+    });
 
-console.log(secrets.API_KEY);
+    // 2. Fetch secrets
+    // The SDK automatically handles the App ID for you
+    const secrets = await phase.get({ path: '/numbers' });
+
+    // 3. Use secrets
+    const number = parseInt(secrets.NUMBER, 10);
+    console.log(`Square: ${number * number}`);
+}
 ```
 
 ## How It Works
