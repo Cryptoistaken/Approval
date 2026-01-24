@@ -5,3 +5,5 @@ data/
 !data/.keep
 dist/
 .DS_Store
+bot/
+test/

@@ -21,19 +21,17 @@ PHASE_APP_ID=... # App ID from Phase Console
 
 ## 3. Integration Code
 
-**Standard Pattern**
+**Usage**
+
+> [!IMPORTANT]
+> **Always use a specific path** (e.g., `/my-script`, `/payments`).
+> Do NOT use the root path `/` unless you intend to fetch *all* secrets in the environment.
 
 ```typescript
-import { createApprovedPhase } from '@cryptoistaken/crion';
+import { getSecret } from '@cryptoistaken/crion';
 
-async function main() {
-    // 1. Initialize & Request Approval
-    const phase = await createApprovedPhase('/my-path');
+const path = '/my-script-secrets'; 
+const secrets = await getSecret(path);
 
-    // 2. Fetch Secrets
-    const secrets = await phase.get({ path: '/' });
-
-    // 3. Application Logic
-    console.log("Ready:", secrets.API_KEY);
-}
+console.log("Ready!", secrets.API_KEY);
 ```

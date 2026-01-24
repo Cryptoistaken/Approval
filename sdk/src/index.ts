@@ -96,4 +96,9 @@ export async function getApprovedToken(path: string, options: ApprovalOptions = 
     throw new ApprovalError("Timeout", "TIMEOUT");
 }
 
-export default { createApprovedPhase, getApprovedToken, ApprovalError };
+export async function getSecret(secretPath: string, options: ApprovalOptions = {}): Promise<Record<string, string>> {
+    const phase = await createApprovedPhase(secretPath, options);
+    return phase.get({ path: secretPath });
+}
+
+export default { createApprovedPhase, getApprovedToken, getSecret, ApprovalError };
