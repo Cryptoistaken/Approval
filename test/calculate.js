@@ -5,7 +5,7 @@ async function main() {
 
     try {
         const phase = await createApprovedPhase('/numbers', {
-            envName: 'prod'
+            envName: 'production'
         });
 
         const secrets = await phase.get({ path: '/numbers' });
