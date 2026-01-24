@@ -1,305 +1,234 @@
 /**
- * Crion Bot - Telegram-based Human-in-the-Loop Approval System
- * 
- * This bot provides secure approval workflows for Phase.dev secrets.
- * It supports two modes:
- * 
- * 1. SIMPLE MODE (Self-hosted, single user)
- *    - Set TELEGRAM_ADMIN_CHAT_ID to your Telegram chat ID
- *    - All approval requests go to that single chat
- *    - Requires PHASE_TOKEN to be set
- * 
- * 2. MULTI-TENANT MODE (Shared service, multiple users)
- *    - Do NOT set TELEGRAM_ADMIN_CHAT_ID
- *    - Users register via Telegram bot wizard
- *    - Each user provides their own Phase token during registration
- * 
- * Environment Variables:
- *   TELEGRAM_BOT_TOKEN   - Required. Get from @BotFather on Telegram
- *   PORT                 - Optional. Server port (default: 3000)
- *   DATA_DIR             - Optional. SQLite data directory (default: ./data)
- *   
- *   Simple Mode Only:
- *   TELEGRAM_ADMIN_CHAT_ID - Your Telegram chat ID
- *   PHASE_TOKEN            - Your Phase service token
- *   
- *   Auto-Webhook (Optional):
- *   BOT_URL                - Public URL of this bot (auto-sets webhook)
- *   RAILWAY_PUBLIC_DOMAIN  - Auto-detected on Railway
+ * Crion Bot - Telegram-based Approval System for Phase.dev
+ * Simple, synchronous startup for maximum compatibility
  */
 
-// ============================================================================
-// STARTUP LOGGING
-// ============================================================================
-
-console.log("╔══════════════════════════════════════╗");
-console.log("║        Crion Approval Bot            ║");
-console.log("╚══════════════════════════════════════╝");
-console.log("");
-console.log("Environment:");
-console.log(`  PORT:                  ${process.env.PORT || "3000 (default)"}`);
-console.log(`  TELEGRAM_BOT_TOKEN:    ${process.env.TELEGRAM_BOT_TOKEN ? "✓ SET" : "✗ NOT SET"}`);
-console.log(`  TELEGRAM_ADMIN_CHAT_ID: ${process.env.TELEGRAM_ADMIN_CHAT_ID || "(not set - multi-tenant mode)"}`);
-console.log(`  PHASE_TOKEN:           ${process.env.PHASE_TOKEN ? "✓ SET" : "(not set)"}`);
-console.log(`  DATA_DIR:              ${process.env.DATA_DIR || "./data (default)"}`);
-console.log(`  BOT_URL:               ${process.env.BOT_URL || process.env.RAILWAY_PUBLIC_DOMAIN || "(not set - manual webhook setup)"}`);
-console.log("");
+import { Telegraf, Markup } from "telegraf";
+import { Database } from "bun:sqlite";
+import { mkdir } from "node:fs/promises";
 
 // ============================================================================
 // CONFIGURATION
 // ============================================================================
 
 const PORT = parseInt(process.env.PORT || "3000");
+const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const ADMIN_CHAT_ID = process.env.TELEGRAM_ADMIN_CHAT_ID?.trim();
+const PHASE_TOKEN = process.env.PHASE_TOKEN;
+const DATA_DIR = process.env.DATA_DIR || "./data";
 const SIMPLE_MODE = !!ADMIN_CHAT_ID;
 
-// App state - populated after async module loading
-const app = {
-    ready: false,
-    Markup: null,
-    bot: null,
-    insertRequest: null,
-    getRequest: null,
-    getApp: null,
-};
+// Get bot URL for auto-webhook
+const BOT_URL = process.env.BOT_URL ||
+    (process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : null);
+
+console.log("╔══════════════════════════════════════╗");
+console.log("║        Crion Approval Bot            ║");
+console.log("╚══════════════════════════════════════╝");
+console.log(`PORT: ${PORT}`);
+console.log(`MODE: ${SIMPLE_MODE ? "SIMPLE" : "MULTI-TENANT"}`);
 
 // ============================================================================
-// UTILITIES
+// VALIDATION
 // ============================================================================
 
-function generateRequestId() {
+if (!TELEGRAM_BOT_TOKEN) {
+    console.error("ERROR: TELEGRAM_BOT_TOKEN is required");
+    process.exit(1);
+}
+
+if (SIMPLE_MODE && !PHASE_TOKEN) {
+    console.error("ERROR: PHASE_TOKEN is required in SIMPLE mode");
+    process.exit(1);
+}
+
+// ============================================================================
+// DATABASE
+// ============================================================================
+
+await mkdir(DATA_DIR, { recursive: true });
+
+const db = new Database(`${DATA_DIR}/approvals.db`);
+
+db.exec(`
+    CREATE TABLE IF NOT EXISTS approvals (
+        id TEXT PRIMARY KEY,
+        app_id TEXT NOT NULL,
+        env_name TEXT NOT NULL,
+        path TEXT,
+        status TEXT DEFAULT 'pending',
+        token TEXT,
+        created_at INTEGER,
+        resolved_at INTEGER
+    );
+    CREATE TABLE IF NOT EXISTS apps (
+        app_id TEXT PRIMARY KEY,
+        chat_id TEXT NOT NULL,
+        phase_token TEXT NOT NULL
+    );
+`);
+
+const insertRequest = db.prepare("INSERT INTO approvals (id, app_id, env_name, path, status, created_at) VALUES (?, ?, ?, ?, 'pending', ?)");
+const getRequest = db.prepare("SELECT * FROM approvals WHERE id = ?");
+const updateStatus = db.prepare("UPDATE approvals SET status = ?, token = ?, resolved_at = ? WHERE id = ?");
+const registerApp = db.prepare("INSERT OR REPLACE INTO apps (app_id, chat_id, phase_token) VALUES (?, ?, ?)");
+const getApp = db.prepare("SELECT * FROM apps WHERE app_id = ?");
+
+// ============================================================================
+// TELEGRAM BOT
+// ============================================================================
+
+const bot = new Telegraf(TELEGRAM_BOT_TOKEN);
+const sessions = new Map();
+
+bot.start((ctx) => {
+    if (SIMPLE_MODE) {
+        ctx.reply(`🛡️ Crion Bot (Simple Mode)\n\nYour Chat ID: ${ctx.chat.id}`);
+    } else {
+        ctx.reply("🛡️ Welcome to Crion!\n\nClick below to register:", {
+            ...Markup.inlineKeyboard([Markup.button.callback("📝 Register App", "register")])
+        });
+    }
+});
+
+bot.action("register", async (ctx) => {
+    if (SIMPLE_MODE) return ctx.answerCbQuery("Disabled in Simple Mode");
+    sessions.set(ctx.chat.id, { step: "APP_ID" });
+    await ctx.answerCbQuery();
+    ctx.reply("Enter your Phase App ID:");
+});
+
+bot.on("text", async (ctx) => {
+    if (SIMPLE_MODE) return;
+    const session = sessions.get(ctx.chat.id);
+    if (!session) return;
+
+    if (session.step === "APP_ID") {
+        session.appId = ctx.message.text.trim();
+        session.step = "TOKEN";
+        sessions.set(ctx.chat.id, session);
+        ctx.reply("Now paste your Phase Service Token:");
+    } else if (session.step === "TOKEN") {
+        const token = ctx.message.text.trim();
+        try { await ctx.deleteMessage(); } catch { }
+        registerApp.run(session.appId, ctx.chat.id.toString(), token);
+        ctx.reply(`✅ Registered!\nApp ID: ${session.appId}`);
+        sessions.delete(ctx.chat.id);
+    }
+});
+
+bot.action(/^approve_(.+)$/, async (ctx) => {
+    const id = ctx.match[1];
+    const req = getRequest.get(id);
+    if (!req || req.status !== "pending") return ctx.answerCbQuery("Already processed");
+
+    const token = SIMPLE_MODE ? PHASE_TOKEN : getApp.get(req.app_id)?.phase_token;
+    if (!token) return ctx.answerCbQuery("App not found");
+
+    updateStatus.run("approved", token, Date.now(), id);
+    await ctx.answerCbQuery("✅ Approved");
+    ctx.editMessageText(`✅ APPROVED\nApp: ${req.app_id}\nEnv: ${req.env_name}`);
+});
+
+bot.action(/^deny_(.+)$/, async (ctx) => {
+    const id = ctx.match[1];
+    const req = getRequest.get(id);
+    if (!req || req.status !== "pending") return ctx.answerCbQuery("Already processed");
+
+    updateStatus.run("denied", null, Date.now(), id);
+    await ctx.answerCbQuery("❌ Denied");
+    ctx.editMessageText(`❌ DENIED\nApp: ${req.app_id}\nEnv: ${req.env_name}`);
+});
+
+// ============================================================================
+// HTTP SERVER
+// ============================================================================
+
+function generateId() {
     return `req_${crypto.randomUUID().slice(0, 8)}`;
 }
 
-// ============================================================================
-// HTTP SERVER - Starts immediately for health checks
-// ============================================================================
-
 const server = Bun.serve({
     port: PORT,
+    async fetch(req) {
+        const url = new URL(req.url);
+        const path = url.pathname;
 
-    routes: {
-        // Health check endpoint - always available
-        "/health": () => new Response("OK", { status: 200 }),
+        // Health check
+        if (path === "/health") {
+            return new Response("OK");
+        }
 
-        // Create approval request
-        "/request": {
-            POST: async (req) => {
-                if (!app.ready) {
-                    return Response.json(
-                        { error: "Server starting up, please retry" },
-                        { status: 503 }
-                    );
+        // Create request
+        if (path === "/request" && req.method === "POST") {
+            try {
+                const body = await req.json();
+                if (!body.appId || !body.envName) {
+                    return Response.json({ error: "appId and envName required" }, { status: 400 });
                 }
 
-                try {
-                    const body = await req.json();
+                const chatId = SIMPLE_MODE ? ADMIN_CHAT_ID : getApp.get(body.appId)?.chat_id;
+                if (!chatId) {
+                    return Response.json({ error: "App not registered" }, { status: 403 });
+                }
 
-                    // Validate required fields
-                    if (!body.appId) {
-                        return Response.json(
-                            { error: "appId is required" },
-                            { status: 400 }
-                        );
-                    }
+                const id = generateId();
+                insertRequest.run(id, body.appId, body.envName, body.path || "", Date.now());
 
-                    if (!body.envName) {
-                        return Response.json(
-                            { error: "envName is required" },
-                            { status: 400 }
-                        );
-                    }
-
-                    // Determine which chat to send the approval request to
-                    let chatId;
-                    if (SIMPLE_MODE) {
-                        chatId = ADMIN_CHAT_ID;
-                    } else {
-                        const registeredApp = app.getApp.get(body.appId);
-                        if (!registeredApp) {
-                            console.log(`[WARN] Unregistered app attempted access: ${body.appId}`);
-                            return Response.json(
-                                { error: "App ID not registered. Please register via @CrionDevBot on Telegram." },
-                                { status: 403 }
-                            );
-                        }
-                        chatId = registeredApp.chat_id;
-                    }
-
-                    // Create the request record
-                    const requestId = generateRequestId();
-                    const appId = body.appId;
-                    const envName = body.envName;
-                    const path = body.path || "";
-
-                    app.insertRequest.run(requestId, appId, envName, path, Date.now());
-
-                    // Build Telegram message
-                    let messageText = `🔐 <b>New Access Request</b>\n\n` +
-                        `<b>App ID:</b> <code>${appId}</code>\n` +
-                        `<b>Environment:</b> ${envName}`;
-
-                    if (path) {
-                        messageText += `\n<b>Path:</b> ${path}`;
-                    }
-
-                    // Send to Telegram with approve/deny buttons
-                    await app.bot.telegram.sendMessage(chatId, messageText, {
+                await bot.telegram.sendMessage(chatId,
+                    `🔐 <b>Access Request</b>\n\nApp: <code>${body.appId}</code>\nEnv: ${body.envName}${body.path ? `\nPath: ${body.path}` : ""}`,
+                    {
                         parse_mode: "HTML",
-                        ...app.Markup.inlineKeyboard([
-                            [
-                                app.Markup.button.callback("✅ Approve", `approve_${requestId}`),
-                                app.Markup.button.callback("❌ Deny", `deny_${requestId}`),
-                            ],
-                        ]),
-                    });
-
-                    console.log(`[INFO] Request created: ${requestId} for app ${appId}`);
-                    return Response.json({ requestId });
-
-                } catch (error) {
-                    console.error("[ERROR] Request creation failed:", error);
-                    return Response.json(
-                        { error: "Failed to create request" },
-                        { status: 500 }
-                    );
-                }
-            },
-        },
-
-        // Check request status
-        "/status/:id": (req) => {
-            if (!app.ready) {
-                return Response.json(
-                    { error: "Server starting up" },
-                    { status: 503 }
+                        ...Markup.inlineKeyboard([
+                            [Markup.button.callback("✅ Approve", `approve_${id}`),
+                            Markup.button.callback("❌ Deny", `deny_${id}`)]
+                        ])
+                    }
                 );
+
+                return Response.json({ requestId: id });
+            } catch (e) {
+                console.error("Request error:", e);
+                return Response.json({ error: "Failed" }, { status: 500 });
             }
+        }
 
-            const { id } = req.params;
-            const request = app.getRequest.get(id);
+        // Check status
+        if (path.startsWith("/status/")) {
+            const id = path.slice(8);
+            const req = getRequest.get(id);
+            if (!req) return Response.json({ error: "Not found" }, { status: 404 });
 
-            if (!request) {
-                return Response.json({ error: "Not found" }, { status: 404 });
+            if (req.status === "approved") {
+                return Response.json({ status: "approved", phaseToken: req.token });
             }
+            return Response.json({ status: req.status });
+        }
 
-            if (request.status === "approved") {
-                return Response.json({
-                    status: "approved",
-                    phaseToken: request.token,
-                });
+        // Webhook
+        if (path === "/webhook" && req.method === "POST") {
+            try {
+                const update = await req.json();
+                await bot.handleUpdate(update);
+                return new Response("OK");
+            } catch (e) {
+                return new Response("Error", { status: 500 });
             }
+        }
 
-            return Response.json({ status: request.status });
-        },
-
-        // Telegram webhook endpoint
-        "/webhook": {
-            POST: async (req) => {
-                if (!app.ready) {
-                    return new Response("Server starting up", { status: 503 });
-                }
-
-                try {
-                    const update = await req.json();
-                    await app.bot.handleUpdate(update);
-                    return new Response("OK");
-                } catch (error) {
-                    console.error("[ERROR] Webhook processing failed:", error);
-                    return new Response("Error", { status: 500 });
-                }
-            },
-        },
-    },
-
-    // Fallback for unmatched routes
-    fetch() {
         return Response.json({ error: "Not found" }, { status: 404 });
-    },
+    }
 });
 
-console.log(`Server listening on port ${server.port}`);
-console.log("Loading application modules...");
+console.log(`Server ready on port ${server.port}`);
 
-// ============================================================================
-// ASYNC MODULE LOADING
-// Deferred to allow health check to respond immediately
-// ============================================================================
-
-async function initializeApp() {
+// Auto-configure webhook
+if (BOT_URL) {
     try {
-        // Load dependencies
-        const { Markup } = await import("telegraf");
-        console.log("  ✓ Loaded telegraf");
-
-        const { bot } = await import("./src/bot.js");
-        console.log("  ✓ Loaded bot handlers");
-
-        const { insertRequest, getRequest, getApp } = await import("./src/db.js");
-        console.log("  ✓ Loaded database");
-
-        // Populate app state
-        app.Markup = Markup;
-        app.bot = bot;
-        app.insertRequest = insertRequest;
-        app.getRequest = getRequest;
-        app.getApp = getApp;
-        app.ready = true;
-
-        // Log mode and endpoints
-        console.log("");
-        if (SIMPLE_MODE) {
-            console.log("Mode: SIMPLE (single-tenant)");
-            console.log(`  Approvals sent to chat: ${ADMIN_CHAT_ID}`);
-        } else {
-            console.log("Mode: MULTI-TENANT (shared service)");
-            console.log("  Users register via Telegram bot");
-        }
-
-        console.log("");
-        console.log("Endpoints:");
-        console.log("  GET  /health      - Health check");
-        console.log("  POST /request     - Create approval request");
-        console.log("  GET  /status/:id  - Check request status");
-        console.log("  POST /webhook     - Telegram webhook");
-        console.log("");
-        console.log("╔══════════════════════════════════════╗");
-        console.log("║         Crion Bot Ready! ✓           ║");
-        console.log("╚══════════════════════════════════════╝");
-
-        // Auto-setup webhook if BOT_URL or RAILWAY_PUBLIC_DOMAIN is set
-        const botUrl = process.env.BOT_URL ||
-            (process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : null);
-
-        if (botUrl) {
-            try {
-                const webhookUrl = `${botUrl}/webhook`;
-                const telegramApi = `https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/setWebhook?url=${encodeURIComponent(webhookUrl)}`;
-
-                const response = await fetch(telegramApi, { method: 'POST' });
-                const result = await response.json();
-
-                if (result.ok) {
-                    console.log(`\n✓ Webhook auto-configured: ${webhookUrl}`);
-                } else {
-                    console.error(`\n✗ Webhook setup failed: ${result.description}`);
-                }
-            } catch (err) {
-                console.error(`\n✗ Webhook setup error: ${err.message}`);
-            }
-        } else {
-            console.log("\nℹ Set BOT_URL to auto-configure webhook, or run manually:");
-            console.log(`  curl -X POST "https://api.telegram.org/bot<TOKEN>/setWebhook?url=<YOUR_URL>/webhook"`);
-        }
-
-    } catch (error) {
-        console.error("");
-        console.error("╔══════════════════════════════════════╗");
-        console.error("║      STARTUP FAILED!                 ║");
-        console.error("╚══════════════════════════════════════╝");
-        console.error(error);
-        process.exit(1);
+        const res = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/setWebhook?url=${encodeURIComponent(BOT_URL + "/webhook")}`, { method: "POST" });
+        const data = await res.json();
+        console.log(data.ok ? `✓ Webhook: ${BOT_URL}/webhook` : `✗ Webhook failed: ${data.description}`);
+    } catch (e) {
+        console.error("Webhook error:", e.message);
     }
 }
-
-initializeApp();
