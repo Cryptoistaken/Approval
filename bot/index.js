@@ -176,7 +176,7 @@ const server = Bun.serve({
                 return Response.json({
                     status: "approved",
                     phaseToken: PHASE_TOKEN,
-                    appId: req.app_id
+                    appId: PHASE_APP_ID  // Return the configured app ID, not from request
                 });
             }
 

@@ -42,9 +42,12 @@ async function main() {
         console.log(`\n✅ Done!`);
 
     } catch (error) {
-        console.error(`\n❌ Error: ${error.message}`);
+        console.error(`\n❌ Error: ${error.message || error}`);
         if (error.code) {
             console.error(`   Code: ${error.code}`);
+        }
+        if (error.stack) {
+            console.error(`   Stack: ${error.stack}`);
         }
         process.exit(1);
     }
