@@ -3,7 +3,7 @@
 Human-in-the-loop approval for [Phase.dev](https://phase.dev) secrets via Telegram.
 
 ```
-Your Script → Crion → Telegram → You Approve → Secrets
+Your Script -> Crion -> Telegram -> You Approve -> Secrets
 ```
 
 ## Quick Start
@@ -16,10 +16,10 @@ Your Script → Crion → Telegram → You Approve → Secrets
 
 | Variable | Description |
 |----------|-------------|
-| `TELEGRAM_BOT_TOKEN` | Get from [@BotFather](https://t.me/BotFather) |
-| `TELEGRAM_ADMIN_CHAT_ID` | Get from [@userinfobot](https://t.me/userinfobot) |
-| `PHASE_TOKEN` | Your Phase service token |
-| `PHASE_APP_ID` | Your Phase App ID (Required) |
+| TELEGRAM_BOT_TOKEN | From @BotFather |
+| TELEGRAM_ADMIN_CHAT_ID | From @userinfobot |
+| PHASE_TOKEN | Your Phase service token |
+| PHASE_APP_ID | Your Phase App ID |
 
 ### 2. Install SDK
 
@@ -27,25 +27,20 @@ Your Script → Crion → Telegram → You Approve → Secrets
 npm install @cryptoistaken/crion
 ```
 
-### 3. Use
+### 3. Usage
 
-#### Example: Calculation Script
+#### Calculation Script Example
 
 ```typescript
 import { createApprovedPhase } from '@cryptoistaken/crion';
 
 async function main() {
-    // 1. Request approval
-    // The bot returns a token AND the correct App ID automatically
     const phase = await createApprovedPhase('/numbers', {
-        envName: 'production' // defaults to 'production' if not set
+        envName: 'production'
     });
 
-    // 2. Fetch secrets
-    // The SDK automatically handles the App ID for you
     const secrets = await phase.get({ path: '/numbers' });
 
-    // 3. Use secrets
     const number = parseInt(secrets.NUMBER, 10);
     console.log(`Square: ${number * number}`);
 }
@@ -53,27 +48,30 @@ async function main() {
 
 ## How It Works
 
-1. Your script calls `createApprovedPhase('/path')`
-2. Bot sends you a Telegram notification with Approve/Deny buttons
-3. You tap **Approve**
+1. Your script calls createApprovedPhase
+2. Bot sends you a Telegram notification
+3. You tap Approve
 4. SDK gets your Phase token and fetches secrets
 5. Your script continues with the secrets
 
 ## SDK Configuration
 
+You can configure the SDK using environment variables:
+
 ```bash
-# .env
 APPROVAL_API_URL=https://your-bot.railway.app
 PHASE_ENV_NAME=production
 ```
 
 ## API
 
-### `createApprovedPhase(path, options?)`
+### createApprovedPhase(path, options?)
+
+Returns a wrapper object that automatically injects the App ID into Phase requests.
 
 ```typescript
 const phase = await createApprovedPhase('/chatbot', {
-    timeout: 300000,      // 5 min default
+    timeout: 300000,
     envName: 'production',
     apiUrl: 'https://your-bot.railway.app'
 });
@@ -81,19 +79,20 @@ const phase = await createApprovedPhase('/chatbot', {
 const secrets = await phase.get({ path: '/' });
 ```
 
-### `getApprovedToken(path, options?)`
+### getApprovedToken(path, options?)
+
+Returns the raw token and app ID if you need manual control.
 
 ```typescript
-const token = await getApprovedToken('/script');
-// Use token with Phase SDK directly
+const { token, appId } = await getApprovedToken('/script');
 ```
 
 ## Security
 
-- ✅ One-time token (cleared after fetched)
-- ✅ 5-minute request expiry
-- ✅ Full UUID request IDs
-- ✅ Human approval required
+- One-time token
+- 5-minute request expiry
+- Full UUID request IDs
+- Human approval required
 
 ## License
 
