@@ -1,70 +1,34 @@
 # Crion
 
-Human-in-the-loop approval for [Phase.dev](https://phase.dev) secrets via Telegram.
+Approvals for Phase.dev secrets via Telegram.
 
-## Quick Start
+## 1. Deploy [Bot](https://railway.app/template/crion)
 
-### 1. Deploy Bot
+Required envs: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_ADMIN_CHAT_ID`, `PHASE_TOKEN`, `PHASE_APP_ID`.
 
-[![Deploy on Railway](https://railway.com/button.svg)](https://railway.app/template/crion)
-
-**Environment Variables:**
-
-| Variable | Description |
-|----------|-------------|
-| TELEGRAM_BOT_TOKEN | From @BotFather |
-| TELEGRAM_ADMIN_CHAT_ID | From @userinfobot |
-| PHASE_TOKEN | Your Phase service token |
-| PHASE_APP_ID | Your Phase App ID |
-
-### 2. Install
+## 2. Install
 
 ```bash
 npm install @cryptoistaken/crion
 ```
 
-### 3. Usage
+## 3. Usage
 
 ```typescript
-import { createApprovedPhase } from '@cryptoistaken/crion';
+import { createApprovedPhase, getApprovedToken } from '@cryptoistaken/crion';
 
-async function main() {
-    // Requests approval and returns Phase client
-    const phase = await createApprovedPhase('/numbers');
-
-    const secrets = await phase.get({ path: '/numbers' });
-    console.log(secrets.NUMBER);
-}
-```
-
-## API
-
-### createApprovedPhase
-
-```typescript
-const phase = await createApprovedPhase('/my-script', {
-    envName: 'production',
-    timeout: 300000 
-});
-
-// Use phase.get() normally
+// Option A: Wrapper (Easy)
+const phase = await createApprovedPhase('/script-name');
 const secrets = await phase.get({ path: '/' });
+
+// Option B: Manual (Advanced)
+const { token, appId } = await getApprovedToken('/script-name');
 ```
 
-### getApprovedToken
-
-```typescript
-const { token, appId } = await getApprovedToken('/my-script');
-```
-
-## Configuration
+## Config
 
 ```bash
-APPROVAL_API_URL=https://your-bot.railway.app
+APPROVAL_API_URL=https://your-app.railway.app
 PHASE_ENV_NAME=production
 PHASE_APP_ID=your-app-id
 ```
-
-## License
-
-MIT
