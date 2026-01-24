@@ -71,6 +71,7 @@ db.exec(`
 const insertRequest = db.prepare("INSERT INTO approvals (id, app_id, env_name, path, status, created_at) VALUES (?, ?, ?, ?, 'pending', ?)");
 const getRequest = db.prepare("SELECT * FROM approvals WHERE id = ?");
 const updateStatus = db.prepare("UPDATE approvals SET status = ?, token = ?, resolved_at = ? WHERE id = ?");
+const clearToken = db.prepare("UPDATE approvals SET token = NULL WHERE id = ?");
 const registerApp = db.prepare("INSERT OR REPLACE INTO apps (app_id, chat_id, phase_token) VALUES (?, ?, ?)");
 const getApp = db.prepare("SELECT * FROM apps WHERE app_id = ?");
 
@@ -145,7 +146,7 @@ bot.action(/^deny_(.+)$/, async (ctx) => {
 // ============================================================================
 
 function generateId() {
-    return `req_${crypto.randomUUID().slice(0, 8)}`;
+    return `req_${crypto.randomUUID()}`; // Full UUID for security
 }
 
 const server = Bun.serve({
@@ -199,9 +200,21 @@ const server = Bun.serve({
             const req = getRequest.get(id);
             if (!req) return Response.json({ error: "Not found" }, { status: 404 });
 
-            if (req.status === "approved") {
+            // Check if request expired (5 min timeout)
+            if (req.status === "pending" && Date.now() - req.created_at > 5 * 60 * 1000) {
+                return Response.json({ status: "expired" });
+            }
+
+            if (req.status === "approved" && req.token) {
+                // Clear token after first fetch (one-time use)
+                clearToken.run(id);
                 return Response.json({ status: "approved", phaseToken: req.token });
             }
+
+            if (req.status === "approved" && !req.token) {
+                return Response.json({ status: "consumed" }); // Already fetched
+            }
+
             return Response.json({ status: req.status });
         }
 
