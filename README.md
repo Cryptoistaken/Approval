@@ -24,3 +24,27 @@ const secrets = await getSecret(path);
 
 console.log("Ready!", secrets.API_KEY);
 ```
+
+## 3. Examples
+
+**Database Connection**
+
+```typescript
+import { getSecret } from '@cryptoistaken/crion';
+
+const secrets = await getSecret('/database-prod');
+const dbUrl = `postgres://${secrets.USER}:${secrets.PASS}@${secrets.HOST}:5432/db`;
+
+await connect(dbUrl);
+```
+
+**Payment Processing**
+
+```typescript
+import { getSecret } from '@cryptoistaken/crion';
+
+const secrets = await getSecret('/stripe-keys');
+const stripe = new Stripe(secrets.SK_LIVE);
+
+await stripe.charges.create({ amount: 2000, currency: 'usd' });
+```
