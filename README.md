@@ -31,7 +31,7 @@ PHASE_APP_ID=your-phase-app-id
 ### 3. Usage
 
 ```typescript
-import { createApprovedPhase } from 'crion';
+import { createApprovedPhase } from '@cryptoistaken/crion';
 
 const phase = await createApprovedPhase('/chatbot');
 const secrets = await phase.get();

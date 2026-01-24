@@ -1,4 +1,4 @@
-import { createApprovedPhase } from '../sdk/src/index';
+import { createApprovedPhase } from '@cryptoistaken/crion';
 
 async function main() {
     console.log("Starting Crion SDK Example");

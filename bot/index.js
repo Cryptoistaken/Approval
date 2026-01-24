@@ -1,6 +1,15 @@
 import { Markup } from "telegraf";
+
+console.log("=== Crion Bot Starting ===");
+console.log(`PORT: ${process.env.PORT || "3000 (default)"}`);
+console.log(`TELEGRAM_BOT_TOKEN: ${process.env.TELEGRAM_BOT_TOKEN ? "SET" : "NOT SET"}`);
+console.log(`TELEGRAM_ADMIN_CHAT_ID: ${process.env.TELEGRAM_ADMIN_CHAT_ID || "NOT SET"}`);
+console.log(`DATA_DIR: ${process.env.DATA_DIR || "./data (default)"}`);
+
 import { bot } from "./src/bot.js";
 import { insertRequest, getRequest, getApp } from "./src/db.js";
+
+console.log("Database initialized successfully");
 
 const PORT = parseInt(process.env.PORT || "3000");
 const ADMIN_CHAT_ID = process.env.TELEGRAM_ADMIN_CHAT_ID;

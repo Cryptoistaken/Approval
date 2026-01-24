@@ -1,5 +1,5 @@
 {
-    "name": "crion",
+    "name": "@cryptoistaken/crion",
     "version": "2.1.0",
     "description": "Telegram-based approval system for Phase.dev secrets",
     "type": "module",
