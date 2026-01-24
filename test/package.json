@@ -1,0 +1,10 @@
+{
+    "name": "crion-test",
+    "type": "module",
+    "scripts": {
+        "calculate": "bun run calculate.js"
+    },
+    "dependencies": {
+        "@cryptoistaken/crion": "^2.1.0"
+    }
+}
