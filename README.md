@@ -28,7 +28,7 @@ import { createApprovedPhase } from '@cryptoistaken/crion';
 
 async function main() {
     // 1. Initialize & Request Approval
-    const phase = await createApprovedPhase('/script-name');
+    const phase = await createApprovedPhase('/my-path');
 
     // 2. Fetch Secrets
     const secrets = await phase.get({ path: '/' });
