@@ -12,7 +12,7 @@ import type { GetSecretOptions } from '@phase.dev/phase-node';
 
 const DEFAULT_API_URL = process.env.APPROVAL_API_URL || "https://crion.up.railway.app";
 const DEFAULT_ENV = process.env.PHASE_ENV_NAME || "production";
-const DEFAULT_APP_ID = process.env.PHASE_APP_ID || "default";
+const DEFAULT_APP_ID = process.env.PHASE_APP_ID; // Only if explicitly set
 
 // ============================================================================
 // TYPES
@@ -94,11 +94,17 @@ export async function createApprovedPhase(
             const statusRes = await fetch(`${apiUrl}/status/${requestId}`);
             const data = await statusRes.json() as {
                 status: string;
-                phaseToken?: string
+                phaseToken?: string;
+                appId?: string;
             };
 
             if (data.status === "approved" && data.phaseToken) {
                 console.log(`✅ Approved!`);
+                // Use appId from response, falling back to env var
+                const appId = data.appId || process.env.PHASE_APP_ID;
+                if (appId) {
+                    process.env.PHASE_APP_ID = appId;
+                }
                 return new Phase(data.phaseToken);
             }
 

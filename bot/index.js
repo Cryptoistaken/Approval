@@ -171,9 +171,13 @@ const server = Bun.serve({
             }
 
             if (req.status === "approved") {
-                // Return token (one-time - delete after)
+                // Return token AND app ID (one-time - delete after)
                 update.run("consumed", id);
-                return Response.json({ status: "approved", phaseToken: PHASE_TOKEN });
+                return Response.json({
+                    status: "approved",
+                    phaseToken: PHASE_TOKEN,
+                    appId: req.app_id
+                });
             }
 
             return Response.json({ status: req.status });
