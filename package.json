@@ -1,7 +1,15 @@
 {
-    "name": "crion",
+    "name": "crion-monorepo",
     "private": true,
+    "workspaces": [
+        "packages/*"
+    ],
     "scripts": {
-        "start": "cd bot && bun run start"
+        "build": "npm run build --workspace=packages/sdk",
+        "start": "npm run start --workspace=packages/bot",
+        "dev:bot": "cd packages/bot && bun run index.ts"
+    },
+    "engines": {
+        "node": ">=16.0.0"
     }
 }

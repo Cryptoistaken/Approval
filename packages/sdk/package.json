@@ -1,6 +1,6 @@
 {
     "name": "@cryptoistaken/crion",
-    "version": "2.1.0",
+    "version": "3.0.0",
     "description": "Telegram-based approval system for Phase.dev secrets",
     "type": "module",
     "main": "./dist/index.js",
@@ -16,26 +16,30 @@
         "dist"
     ],
     "scripts": {
-        "build": "bun build ./src/index.ts --outdir ./dist --target node && bun run build:types",
-        "build:types": "tsc ./src/index.ts --emitDeclarationOnly --declaration --outDir dist",
-        "prepublishOnly": "bun run build"
+        "build": "tsup src/index.ts --format esm --dts --target node16 --clean",
+        "build:bun": "bun build ./src/index.ts --outdir ./dist --target node && tsc ./src/index.ts --emitDeclarationOnly --declaration --outDir dist",
+        "prepublishOnly": "npm run build"
     },
     "devDependencies": {
-        "@types/node": "^25.0.10",
-        "bun-types": "latest",
+        "@types/node": "^20.0.0",
+        "tsup": "^8.0.0",
         "typescript": "^5.0.0"
     },
     "keywords": [
         "phase",
         "secrets",
         "approval",
-        "telegram"
+        "telegram",
+        "security"
     ],
     "author": "cryptoistaken",
     "license": "MIT",
     "repository": {
         "type": "git",
         "url": "https://github.com/Cryptoistaken/Crion"
+    },
+    "engines": {
+        "node": ">=16.0.0"
     },
     "dependencies": {
         "@phase.dev/phase-node": "^3.2.0"

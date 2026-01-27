@@ -1,9 +1,28 @@
+# Dependencies
 node_modules/
+*.lock
+package-lock.json
+bun.lock
+
+# Environment
 .env
+.env.*
+!.env.example
+
+# Build outputs
+dist/
+
+# Database
 *.db
 data/
 !data/.keep
-dist/
+
+# System
 .DS_Store
-bot/
-test/
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
