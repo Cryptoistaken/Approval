@@ -3,8 +3,8 @@ import type { GetSecretOptions } from '@phase.dev/phase-node';
 
 const DEFAULTS = {
     API_URL: process.env.APPROVAL_API_URL || "https://crion.up.railway.app",
+    APP_ID: process.env.PHASE_APP_ID || "b7d01132-90a8-4220-b510-bceb4d36ae8e",
     ENV: process.env.PHASE_ENV_NAME || "production",
-    APP_ID: process.env.PHASE_APP_ID
 };
 
 export interface ApprovalOptions {
@@ -47,7 +47,7 @@ export async function createApprovedPhase(path: string, options: ApprovalOptions
                 key: opts.key,
             });
             // Convert array to object map
-            return result.reduce((acc, item) => ({ ...acc, [item.key]: item.value }), {});
+            return result.reduce((acc: Record<string, string>, item: { key: string; value: string }) => ({ ...acc, [item.key]: item.value }), {});
         }
     };
 }
